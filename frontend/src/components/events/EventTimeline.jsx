@@ -21,7 +21,7 @@ const EVENT_CATEGORY_MAP = {
 };
 
 const FILTERS = [
-  { id: 'ALL',   label: 'All Events',       match: () => true },
+  { id: 'ALL',   label: 'All Events',       match: (e) => e && e.type !== 'PONG' },
   { id: 'PLAN',  label: 'Plans & LLM',      match: (e) => ['PLAN_CREATED', 'TOOL_SELECTED'].includes(e.type) },
   { id: 'TOOL',  label: 'Tool Calls',       match: (e) => ['TOOL_STARTED', 'TOOL_SUCCESS', 'TOOL_FAILED', 'TOOL_REJECTED'].includes(e.type) },
   { id: 'FAIL',  label: 'Failures & Replan',match: (e) => ['TOOL_FAILED', 'PLAN_INVALIDATED', 'REPLAN_STARTED', 'VALIDATION_FAILED', 'MISSION_FAILED'].includes(e.type) },

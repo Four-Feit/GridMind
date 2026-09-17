@@ -40,6 +40,10 @@ class GridMindWebSocket {
       this.ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          // PONG is an internal keepalive heartbeat; do not flood the agent event log
+          if (data && data.type === 'PONG') {
+            return;
+          }
           this.notifyListeners(data);
         } catch (err) {
           console.error('[WebSocket] Malformed message payload:', err);

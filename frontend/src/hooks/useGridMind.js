@@ -42,12 +42,19 @@ export function useGridMind() {
 
   // Handle incoming WebSocket telemetry event
   const handleWsEvent = useCallback((incoming) => {
-    if (isMockMode) return;
+    if (isMockMode || !incoming) return;
+
+    // Heartbeat keepalive responses are strictly network-level, not agent events
+    if (incoming.type === 'PONG') {
+      return;
+    }
 
     if (incoming.type === 'CONNECTION_ESTABLISHED') {
       if (incoming.grid_state) setGridState(incoming.grid_state);
       if (incoming.agent_state) setAgentState(incoming.agent_state);
-      if (incoming.recent_events) setEvents(incoming.recent_events);
+      if (incoming.recent_events) {
+        setEvents(incoming.recent_events.filter((e) => e && e.type !== 'PONG'));
+      }
       return;
     }
 
