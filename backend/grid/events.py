@@ -1,11 +1,30 @@
 """
 Grid Simulator Chaos Events (Owned by P2)
 """
-from typing import Any, Dict
-from pydantic import BaseModel
+from enum import Enum
+from typing import Any, Dict, Optional
+from pydantic import BaseModel, Field
+
+
+class ChaosEventType(str, Enum):
+    SUBSTATION_FAILURE = "SUBSTATION_FAILURE"
+    TRANSMISSION_FAILURE = "TRANSMISSION_FAILURE"
+    GENERATOR_FAILURE = "GENERATOR_FAILURE"
+    WEATHER_DETERIORATION = "WEATHER_DETERIORATION"
+    DEMAND_SPIKE = "DEMAND_SPIKE"
+    BATTERY_DEPLETION = "BATTERY_DEPLETION"
 
 
 class ChaosEvent(BaseModel):
-    event_type: str  # SUBSTATION_FAILURE, GENERATOR_FAILURE, WEATHER_DETERIORATION, DEMAND_SPIKE
+    event_type: str = Field(description="Type of chaos event (e.g. SUBSTATION_FAILURE, WEATHER_DETERIORATION)")
+    target: str = Field(default="", description="Target component ID")
+    params: Dict[str, Any] = Field(default_factory=dict, description="Additional parameters (e.g. drop_mw, spike_mw)")
+
+
+class ChaosEventResult(BaseModel):
+    status: str
+    event_type: str
     target: str
-    params: Dict[str, Any] = {}
+    message: str
+    timestamp: float
+    details: Optional[Dict[str, Any]] = None
