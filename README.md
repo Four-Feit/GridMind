@@ -24,6 +24,8 @@
 - [9. The Pitch Scenario (Step-by-Step)](#9-the-pitch-scenario-step-by-step)
 - [10. Testing & Verification](#10-testing--verification)
 - [11. API & WebSocket Telemetry Reference](#11-api--websocket-telemetry-reference)
+- [12. Track 2 Bonus: GridMind vs. LangChain / CrewAI](#12-track-2-bonus-gridmind-vs-langchain--crewai)
+
 
 ---
 
@@ -406,6 +408,21 @@ Connect to `ws://localhost:8000/ws`:
   - `PLAN_INVALIDATED`
   - `REPLAN_STARTED`
   - `MISSION_COMPLETED`
+
+---
+
+## 12. Track 2 Bonus: GridMind vs. LangChain / CrewAI
+
+> *"Compare your framework's behavior on the same task against a standard framework like LangChain, and explain the difference."*
+
+We created a detailed comparison document outlining why standard off-the-shelf frameworks fail on physical power grid tasks, and how GridMind solves it:
+
+👉 **Read the Full Comparison: [docs/langchain-comparison.md](docs/langchain-comparison.md)**
+
+### Key Highlights:
+1. **The Overload Trap**: When line `TL4` hits its 60.0 MW thermal limit, vanilla LangChain (`AgentExecutor`) typically gets stuck in an infinite retry loop or hallucinates that power was restored.
+2. **Dynamic Recovery**: GridMind catches `TRANSMISSION_OVERLOAD`, triggers `PLAN_INVALIDATED`, writes `"avoid overloading line TL4"` to `WorkingMemory`, and prompts Gemini to pivot to load shedding (`priority_load_manager`).
+3. **Code-Verified Truth**: While LangChain trusts the LLM's self-congratulatory output, GridMind's `OutcomeValidator` requires mathematical proof that critical loads are energized before concluding the mission.
 
 ---
 
