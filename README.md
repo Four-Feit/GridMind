@@ -1,4 +1,5 @@
-[GridMind_Team_README.md](https://github.com/user-attachments/files/32345243/GridMind_Team_README.md)# GridMind - Build the Brain, Not the Puppet
+[GridMind_Team_README.md](https://github.com/user-attachments/files/32345243/GridMind_Team_README.md)
+# GridMind - Build the Brain, Not the Puppet
 
 > A from-scratch mini agent framework for autonomous planning, tool selection, execution, observation, recovery, and replanning inside a simulated power-grid environment.
 
