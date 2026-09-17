@@ -23,6 +23,10 @@
 ## 1. Contract: GridState (Owner: P2)
 Returned by `simulator.get_state()`.
 
+> **Dynamic Calculation Rule**: `generation_mw` and `demand_mw` are **dynamically computed** in real time by summing active generators (`online == true`) and connected loads (`connected == true`). They are never hardcoded constants, fluctuate as chaos events or load-shedding occur, and can be adjusted interactively via dashboard sliders/scenarios.
+
+The following is an **example snapshot** at initial baseline state:
+
 ```json
 {
   "timestamp": 1720000000.0,
@@ -31,16 +35,16 @@ Returned by `simulator.get_state()`.
   "generators": [
     {
       "id": "G1",
-      "type": "generator",
-      "capacity_mw": 100.0,
-      "available_mw": 90.0,
+      "type": "conventional",
+      "capacity_mw": 150.0,
+      "available_mw": 140.0,
       "online": true
     },
     {
-      "id": "G2",
-      "type": "generator",
-      "capacity_mw": 100.0,
-      "available_mw": 90.0,
+      "id": "G2_SOLAR",
+      "type": "solar",
+      "capacity_mw": 50.0,
+      "available_mw": 40.0,
       "online": true
     }
   ],
@@ -53,10 +57,23 @@ Returned by `simulator.get_state()`.
     {
       "id": "S2",
       "type": "substation",
-      "online": false
+      "online": true
+    },
+    {
+      "id": "S3",
+      "type": "substation",
+      "online": true
     }
   ],
   "transmission_lines": [
+    {
+      "id": "TL1",
+      "from": "S1",
+      "to": "S2",
+      "capacity_mw": 80.0,
+      "load_mw": 50.0,
+      "online": true
+    },
     {
       "id": "TL4",
       "from": "S2",
@@ -76,10 +93,34 @@ Returned by `simulator.get_state()`.
       "connected": true
     },
     {
+      "id": "WATER_PLANT",
+      "type": "water_plant",
+      "demand_mw": 25.0,
+      "supplied_mw": 25.0,
+      "priority": "critical",
+      "connected": true
+    },
+    {
+      "id": "EMERGENCY_SERVICES",
+      "type": "emergency",
+      "demand_mw": 15.0,
+      "supplied_mw": 15.0,
+      "priority": "critical",
+      "connected": true
+    },
+    {
+      "id": "RESIDENTIAL_ZONE",
+      "type": "residential",
+      "demand_mw": 40.0,
+      "supplied_mw": 40.0,
+      "priority": "normal",
+      "connected": true
+    },
+    {
       "id": "FACTORY",
       "type": "industrial",
-      "demand_mw": 45.0,
-      "supplied_mw": 45.0,
+      "demand_mw": 40.0,
+      "supplied_mw": 40.0,
       "priority": "normal",
       "connected": true
     }
@@ -87,11 +128,11 @@ Returned by `simulator.get_state()`.
   "battery": {
     "id": "B1",
     "capacity_mwh": 100.0,
-    "remaining_mwh": 70.0,
+    "remaining_mwh": 80.0,
     "max_output_mw": 40.0,
     "online": true
   },
-  "failures": ["Substation S2 offline"]
+  "failures": []
 }
 ```
 

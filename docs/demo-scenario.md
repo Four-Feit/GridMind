@@ -116,11 +116,14 @@ journey
 
   {
     "event_type": "WEATHER_DETERIORATION",
-    "target": "G2"
+    "target": "G2_SOLAR",
+    "params": {
+      "drop_mw": 30.0
+    }
   }
   ```
 - **Quantitative Effect**:
-  - Generator G2 output drops: `90.0 MW -> 60.0 MW` (Generation deficit of 30.0 MW)
+  - Generator `G2_SOLAR` output drops: `40.0 MW -> 10.0 MW` (Generation deficit of 30.0 MW)
   - Agent observes generation drop.
 - **Agent Reaction**:
   - Planner selects `battery_engine`.

@@ -140,3 +140,16 @@ sequenceDiagram
 - **`FakeLLM`**: Deterministic mock provider that plays scripted sequences for unit testing, offline development, and zero-token CI/CD runs.
 - **`OpenAILikeClient` / Live Adapters**: Invokes live APIs (Gemini, OpenAI) using the environment variable `LLM_API_KEY` and `LLM_MODEL`.
 - The planner switch between Mock and Live API is controlled via configuration without modifying a single line of agent orchestration logic.
+
+---
+
+## Cross-Module Interface Mapping
+
+| Interface | Caller $\to$ Callee | Mechanism / Method | Data Exchanged |
+|---|---|---|---|
+| **Observe World** | P1 $\to$ P2 | `simulator.get_state()` | Returns `GridState` |
+| **Execute Tool** | P1 $\to$ P3 | `capability.execute(state, args)` | Sends args, returns `ToolResult` |
+| **Stream Trace** | P1 $\to$ P4 | `EventBus.emit(event)` $\to$ WebSocket `/ws` | Broadcasts `AgentEvent` envelopes |
+| **Trigger Mission** | P4 $\to$ P1 | `POST /mission/start` | Starts autonomous agent loop |
+| **Inject Chaos** | P4 $\to$ P2 | `POST /chaos/event` | Mutates simulator physical state |
+
