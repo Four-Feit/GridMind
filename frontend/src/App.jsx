@@ -10,9 +10,11 @@ import { EventTracePage } from './pages/EventTracePage';
 
 export function App() {
   const [activePage, setActivePage] = useState('landing');
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('gridmind_theme') || 'dark';
-  });
+
+  // Force light theme permanently
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }, []);
 
   const {
     isMockMode,
@@ -27,33 +29,21 @@ export function App() {
     stepMission,
     stopMission,
     resetMission,
-    injectChaos
+    injectChaos,
+    updateGrid,
   } = useGridMind();
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('gridmind_theme', theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
-  };
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)' }}>
-      {/* Top Navigation */}
       <Navbar
         activePage={activePage}
         setActivePage={setActivePage}
-        theme={theme}
-        toggleTheme={toggleTheme}
         isMockMode={isMockMode}
         toggleMockMode={toggleMockMode}
         wsConnected={wsConnected}
         missionStatus={agentState?.mission?.status}
       />
 
-      {/* Main Content Area */}
       <main style={{ flex: 1 }}>
         {activePage === 'landing' && (
           <LandingPage
@@ -74,21 +64,17 @@ export function App() {
             stopMission={stopMission}
             resetMission={resetMission}
             injectChaos={injectChaos}
+            updateGrid={updateGrid}
             isMockMode={isMockMode}
           />
         )}
 
-        {activePage === 'architecture' && (
-          <ArchitecturePage />
-        )}
+        {activePage === 'architecture' && <ArchitecturePage />}
 
-        {activePage === 'events' && (
-          <EventTracePage events={events} />
-        )}
+        {activePage === 'events' && <EventTracePage events={events} />}
       </main>
 
-      {/* Footer */}
-      <Footer />
+      <Footer activePage={activePage} setActivePage={setActivePage} />
     </div>
   );
 }

@@ -181,6 +181,101 @@ class GridMindService:
             "grid_state": self.simulator.get_state()
         }
 
+    def update_grid(
+        self,
+        generation_mw: float = None,
+        demand_mw: float = None,
+        generator_id: str = None,
+        generator_available_mw: float = None,
+        generator_online: bool = None,
+        load_id: str = None,
+        load_demand_mw: float = None,
+        load_connected: bool = None,
+        battery_remaining_mwh: float = None,
+        battery_online: bool = None,
+        line_id: str = None,
+        line_online: bool = None,
+    ) -> Dict[str, Any]:
+        """Applies manual simulator state changes from the Manual Mode UI or Power Balance card."""
+        changes = []
+
+        if generation_mw is not None:
+            target = max(0.0, float(generation_mw))
+            g1 = next((g for g in self.simulator.generators if g.id == "G1"), None)
+            g2 = next((g for g in self.simulator.generators if g.id == "G2_SOLAR"), None)
+            if g1 and g2:
+                solar_share = min(g2.capacity_mw, target * 0.25)
+                g2.available_mw = round(solar_share, 1)
+                g1.available_mw = round(min(g1.capacity_mw, target - g2.available_mw), 1)
+                changes.append(f"Total generation adjusted to {round(g1.available_mw + g2.available_mw, 1)}MW (G1={g1.available_mw}MW, G2={g2.available_mw}MW)")
+            elif g1:
+                g1.available_mw = round(min(g1.capacity_mw, target), 1)
+                changes.append(f"Generator G1: available_mw={g1.available_mw}MW")
+
+        if demand_mw is not None:
+            target_demand = max(10.0, float(demand_mw))
+            critical_sum = sum(l.demand_mw for l in self.simulator.loads if l.priority == "critical")
+            non_critical = [l for l in self.simulator.loads if l.priority != "critical"]
+            if non_critical:
+                remaining = max(0.0, target_demand - critical_sum)
+                per_load = remaining / len(non_critical)
+                for l in non_critical:
+                    l.demand_mw = round(per_load, 1)
+                    if l.connected:
+                        l.supplied_mw = l.demand_mw
+                total_dem = sum(l.demand_mw for l in self.simulator.loads if l.connected)
+                changes.append(f"Total demand adjusted to {round(total_dem, 1)}MW")
+
+        if generator_id:
+            for g in self.simulator.generators:
+                if g.id == generator_id:
+                    if generator_available_mw is not None:
+                        g.available_mw = min(generator_available_mw, g.capacity_mw)
+                        changes.append(f"Generator {generator_id}: available_mw={g.available_mw}MW")
+                    if generator_online is not None:
+                        g.online = generator_online
+                        changes.append(f"Generator {generator_id}: {'online' if generator_online else 'offline'}")
+
+        if load_id:
+            for l in self.simulator.loads:
+                if l.id == load_id:
+                    if load_demand_mw is not None:
+                        l.demand_mw = load_demand_mw
+                        if l.connected:
+                            l.supplied_mw = min(load_demand_mw, l.supplied_mw)
+                        changes.append(f"Load {load_id}: demand_mw={load_demand_mw}MW")
+                    if load_connected is not None:
+                        l.connected = load_connected
+                        l.supplied_mw = l.demand_mw if load_connected else 0.0
+                        changes.append(f"Load {load_id}: {'connected' if load_connected else 'disconnected'}")
+
+        if battery_remaining_mwh is not None or battery_online is not None:
+            b = self.simulator.battery
+            if battery_remaining_mwh is not None:
+                b.remaining_mwh = min(battery_remaining_mwh, b.capacity_mwh)
+                changes.append(f"Battery: remaining_mwh={b.remaining_mwh}MWh")
+            if battery_online is not None:
+                b.online = battery_online
+                changes.append(f"Battery: {'online' if battery_online else 'offline'}")
+
+        if line_id:
+            for tl in self.simulator.transmission_lines:
+                if tl.id == line_id:
+                    if line_online is not None:
+                        tl.online = line_online
+                        changes.append(f"Line {line_id}: {'restored' if line_online else 'tripped'}")
+
+        msg = f"Manual grid update: {'; '.join(changes)}" if changes else "Manual grid update (no changes)"
+
+        update_event = AgentEvent(
+            type=AgentEventType.CHAOS_EVENT,
+            message=msg,
+            data={"source": "manual_mode", "changes": changes, "grid_state": self.simulator.get_state()}
+        )
+        self.event_bus.emit(update_event)
+
+        return {"message": msg, "changes": changes, "grid_state": self.simulator.get_state()}
+
     async def _run_agent_loop(self) -> None:
         """Paced execution of agent steps so the UI experiences real-time reasoning."""
         try:

@@ -1,5 +1,5 @@
 """
-API Routes for GridMind (Owned by P4)
+API Routes for GridMind (P4 Integration Layer)
 """
 from typing import Any, Dict, Optional
 from fastapi import APIRouter, HTTPException, Query
@@ -112,3 +112,46 @@ def get_capabilities():
         return {"status": "ok", "capabilities": caps}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve capabilities: {str(e)}")
+
+
+class GridUpdateRequest(BaseModel):
+    """Manual grid state update — used by the Manual Mode UI controls and Power Balance card."""
+    generation_mw: Optional[float] = Field(default=None, ge=0, description="Override total generation (MW)")
+    demand_mw: Optional[float] = Field(default=None, ge=0, description="Override total demand (MW)")
+
+    generator_id: Optional[str] = Field(default=None, description="Generator ID to update (e.g. G1)")
+    generator_available_mw: Optional[float] = Field(default=None, ge=0, description="New available MW for the generator")
+    generator_online: Optional[bool] = Field(default=None, description="Set generator online/offline")
+
+    load_id: Optional[str] = Field(default=None, description="Load ID to update (e.g. HOSPITAL)")
+    load_demand_mw: Optional[float] = Field(default=None, ge=0, description="New demand MW for the load")
+    load_connected: Optional[bool] = Field(default=None, description="Connect or disconnect the load")
+
+    battery_remaining_mwh: Optional[float] = Field(default=None, ge=0, description="Override battery remaining energy")
+    battery_online: Optional[bool] = Field(default=None, description="Set battery online/offline")
+
+    line_id: Optional[str] = Field(default=None, description="Transmission line ID to update (e.g. TL4)")
+    line_online: Optional[bool] = Field(default=None, description="Trip or restore a transmission line")
+
+
+@router.post("/grid/update")
+def update_grid(req: GridUpdateRequest):
+    """Applies manual changes to the simulator state from the Manual Mode UI or Power Balance card."""
+    try:
+        result = service.update_grid(
+            generation_mw=req.generation_mw,
+            demand_mw=req.demand_mw,
+            generator_id=req.generator_id,
+            generator_available_mw=req.generator_available_mw,
+            generator_online=req.generator_online,
+            load_id=req.load_id,
+            load_demand_mw=req.load_demand_mw,
+            load_connected=req.load_connected,
+            battery_remaining_mwh=req.battery_remaining_mwh,
+            battery_online=req.battery_online,
+            line_id=req.line_id,
+            line_online=req.line_online,
+        )
+        return {"status": "ok", **result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update grid: {str(e)}")

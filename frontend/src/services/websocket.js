@@ -1,5 +1,5 @@
 /**
- * GridMind WebSocket Client for Event Telemetry (Owned by P4)
+ * GridMind WebSocket Client for Real-Time Event Telemetry
  */
 
 class GridMindWebSocket {

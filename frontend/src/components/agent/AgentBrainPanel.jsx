@@ -40,7 +40,7 @@ export const AgentBrainPanel = ({ agentState, events }) => {
           </div>
           <div>
             <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>Agent Brain</h3>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>P1 Autonomous Controller</span>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Autonomous Reasoning Engine</span>
           </div>
         </div>
 

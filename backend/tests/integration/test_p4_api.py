@@ -160,3 +160,16 @@ def test_websocket_telemetry_stream():
         pong = ws.receive_json()
         assert pong["type"] == "PONG"
         assert pong["timestamp"] == 12345
+
+
+def test_grid_update_power_balance():
+    client = TestClient(app)
+    res = client.post("/grid/update", json={"generation_mw": 190.0, "demand_mw": 145.0})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "ok"
+    assert data["grid_state"]["generation_mw"] == 190.0
+    assert data["grid_state"]["demand_mw"] == 145.0
+    # Clean reset
+    client.post("/mission/reset")
+

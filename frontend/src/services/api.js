@@ -1,5 +1,5 @@
 /**
- * GridMind API Client (Owned by P4)
+ * GridMind API Client for Backend Services
  */
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -67,4 +67,10 @@ export const api = {
 
   getCapabilities: () =>
     fetchJson('/capabilities'),
+
+  updateGrid: (payload) =>
+    fetchJson('/grid/update', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 };

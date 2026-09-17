@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   IconHospital,
   IconDroplet,
@@ -6,12 +6,29 @@ import {
   IconBattery,
   IconAlertTriangle,
   IconCheckCircle,
-  IconXCircle
+  IconXCircle,
+  IconZap
 } from '../ui/Icons';
 
-export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
-  const [selectedNode, setSelectedNode] = useState(null);
+// SVG Viewport coordinate configuration (Guarantees zero clipping across all screen sizes)
+const SVG_W = 980;
+const SVG_H = 470;
 
+export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState(null);
+  const [isMaximized, setIsMaximized] = useState(false);
+
+  // Close modal on Escape
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isMaximized) setIsMaximized(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMaximized]);
+
+  // Extract simulator entities safely
   const generators = gridState?.generators || [];
   const substations = gridState?.substations || [];
   const lines = gridState?.transmission_lines || [];
@@ -19,471 +36,837 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
   const battery = gridState?.battery || { capacity_mwh: 100, remaining_mwh: 80, max_output_mw: 40, online: true };
   const failures = gridState?.failures || [];
 
-  const handleNodeClick = (entity, type) => {
-    const data = { ...entity, entityType: type };
-    setSelectedNode(data);
-    if (onSelectEntity) onSelectEntity(data);
-  };
+  const g1 = generators.find((g) => g.id === 'G1') || { id: 'G1', capacity_mw: 150, available_mw: 140, online: true };
+  const g2 = generators.find((g) => g.id === 'G2_SOLAR' || g.id === 'G2') || { id: 'G2_SOLAR', capacity_mw: 50, available_mw: 40, online: true };
 
-  const getSubstationStatus = (id) => {
-    const sub = substations.find((s) => s.id === id);
-    return sub ? sub.online : true;
-  };
+  const s1 = substations.find((s) => s.id === 'S1') || { id: 'S1', online: true };
+  const s2 = substations.find((s) => s.id === 'S2') || { id: 'S2', online: true };
+  const s3 = substations.find((s) => s.id === 'S3') || { id: 'S3', online: true };
 
-  const getLine = (id) => lines.find((l) => l.id === id) || { capacity_mw: 60, load_mw: 40, online: true };
+  const tl1 = lines.find((l) => l.id === 'TL1') || { id: 'TL1', capacity_mw: 80, load_mw: 50, online: true };
+  const tl4 = lines.find((l) => l.id === 'TL4') || { id: 'TL4', capacity_mw: 60, load_mw: 40, online: true };
 
-  const tl1 = getLine('TL1');
-  const tl4 = getLine('TL4');
   const isTl4Overloaded = (tl4.load_mw || 0) > (tl4.capacity_mw || 60);
 
-  const hospital = loads.find((l) => l.id === 'HOSPITAL') || { demand_mw: 30, supplied_mw: 30, connected: true, priority: 'critical' };
-  const waterPlant = loads.find((l) => l.id === 'WATER_PLANT') || { demand_mw: 25, supplied_mw: 25, connected: true, priority: 'critical' };
-  const residential = loads.find((l) => l.id === 'RESIDENTIAL_1') || { demand_mw: 40, supplied_mw: 40, connected: true, priority: 'normal' };
-  const factory = loads.find((l) => l.id === 'FACTORY') || { demand_mw: 45, supplied_mw: 45, connected: true, priority: 'normal' };
+  const hospital = loads.find((l) => l.id === 'HOSPITAL') || { id: 'HOSPITAL', demand_mw: 30, supplied_mw: 30, connected: true, priority: 'critical' };
+  const waterPlant = loads.find((l) => l.id === 'WATER_PLANT') || { id: 'WATER_PLANT', demand_mw: 25, supplied_mw: 25, connected: true, priority: 'critical' };
+  const residential = loads.find((l) => l.id === 'RESIDENTIAL_ZONE' || l.id === 'RESIDENTIAL_1') || { id: 'RESIDENTIAL', demand_mw: 40, supplied_mw: 40, connected: true, priority: 'normal' };
+  const factory = loads.find((l) => l.id === 'FACTORY') || { id: 'FACTORY', demand_mw: 40, supplied_mw: 40, connected: true, priority: 'normal' };
 
-  return (
-    <div className="glass-panel" style={{ padding: '24px', position: 'relative', overflow: 'hidden' }}>
-      {/* Header with Title & Legend */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', gap: '12px' }}>
+  // Hospital outage check (cause -> effect connection)
+  const isHospitalDistressed = !hospital.connected || hospital.supplied_mw < hospital.demand_mw || !s2.online;
+
+  // Active inspected entity
+  const inspectedId = selectedNodeId || hoveredNodeId;
+
+  // Node connection relationships for line highlighting
+  const nodeConnections = {
+    'G1': ['G1-S1'],
+    'G2_SOLAR': ['G2-S1'],
+    'G2': ['G2-S1'],
+    'S1': ['G1-S1', 'G2-S1', 'TL1'],
+    'S2': ['TL1', 'TL4', 'B1-S2'],
+    'B1': ['B1-S2'],
+    'S3': ['TL4', 'S3-HOSPITAL', 'S3-WATER', 'S3-RESIDENTIAL', 'S3-FACTORY'],
+    'HOSPITAL': ['S3-HOSPITAL'],
+    'WATER_PLANT': ['S3-WATER'],
+    'RESIDENTIAL_ZONE': ['S3-RESIDENTIAL'],
+    'RESIDENTIAL': ['S3-RESIDENTIAL'],
+    'FACTORY': ['S3-FACTORY'],
+  };
+
+  const isLineActiveForInspection = (lineKey) => {
+    if (!inspectedId) return true; // default normal
+    const connections = nodeConnections[inspectedId] || [];
+    return connections.includes(lineKey);
+  };
+
+  // Node details dictionary for inspection drawer
+  const getNodeDetails = (id) => {
+    if (id === 'G1') return { title: 'Conventional Generator (G1)', type: 'Generation Source', status: g1.online ? 'Online' : 'Offline', stat: `${g1.available_mw} / ${g1.capacity_mw} MW`, note: 'Primary thermal dispatch generator' };
+    if (id === 'G2_SOLAR' || id === 'G2') return { title: 'Solar Array (G2)', type: 'Renewable Generation', status: g2.online ? 'Online' : 'Offline', stat: `${g2.available_mw} / ${g2.capacity_mw} MW`, note: 'Subject to weather fluctuation chaos' };
+    if (id === 'S1') return { title: 'Substation S1', type: 'Primary Generation Bus', status: s1.online ? 'Online' : 'Tripped', stat: 'Bus Voltage: 230kV', note: 'Aggregates generator output to transmission grid' };
+    if (id === 'S2') return { title: 'Substation S2', type: 'Transmission Switching Hub', status: s2.online ? 'Online' : 'OFFLINE (FAULT)', stat: `TL1 Load: ${tl1.load_mw}MW`, note: s2.online ? 'Normal routing through TL1 & TL4' : 'Outage causing critical load disconnection' };
+    if (id === 'B1') return { title: 'B1 Battery Storage', type: 'Grid Energy Storage', status: battery.online ? 'Online' : 'Offline', stat: `${battery.remaining_mwh} / ${battery.capacity_mwh} MWh`, note: `Max output capacity: ${battery.max_output_mw} MW` };
+    if (id === 'S3') return { title: 'Substation S3', type: 'Distribution Feed Hub', status: s3.online ? 'Online' : 'Offline', stat: `Fed via TL4 (${tl4.load_mw}MW)`, note: 'Feeds hospital, municipal water, residential & industrial loads' };
+    if (id === 'HOSPITAL') return { title: 'Metropolitan Hospital', type: 'Critical Priority Load', status: isHospitalDistressed ? 'DEFICIT / OUTAGE' : 'Protected', stat: `${hospital.supplied_mw} / ${hospital.demand_mw} MW`, note: 'Non-sheddable high-priority emergency facility' };
+    if (id === 'WATER_PLANT') return { title: 'Municipal Water Plant', type: 'Critical Priority Load', status: waterPlant.connected ? 'Supplied' : 'Interrupted', stat: `${waterPlant.supplied_mw} / ${waterPlant.demand_mw} MW`, note: 'Critical municipal water treatment & pumping' };
+    if (id === 'RESIDENTIAL' || id === 'RESIDENTIAL_ZONE') return { title: 'Residential Zone', type: 'Standard Priority Load', status: residential.connected ? 'Supplied' : 'Shed', stat: `${residential.supplied_mw} / ${residential.demand_mw} MW`, note: 'Urban residential feeder' };
+    if (id === 'FACTORY') return { title: 'Industrial Factory', type: 'Normal Priority Load', status: factory.connected ? 'Connected' : 'LOAD SHED', stat: `${factory.supplied_mw} / ${factory.demand_mw} MW`, note: factory.connected ? 'Standard manufacturing demand' : 'Shed to protect critical facilities' };
+    return null;
+  };
+
+  const inspectedDetails = inspectedId ? getNodeDetails(inspectedId) : null;
+
+  const handleNodeClick = (id, entity, entityType) => {
+    if (selectedNodeId === id) {
+      setSelectedNodeId(null);
+    } else {
+      setSelectedNodeId(id);
+      if (onSelectEntity) onSelectEntity({ id, ...entity, entityType });
+    }
+  };
+
+  const handleCanvasClick = (e) => {
+    // If clicking SVG background directly, clear selection
+    if (e.target.tagName === 'svg' || e.target.id === 'svg-bg') {
+      setSelectedNodeId(null);
+    }
+  };
+
+  const renderContent = (fullscreen = false) => (
+    <div
+      className={fullscreen ? '' : 'glass-panel'}
+      style={{
+        padding: fullscreen ? '28px 32px' : '20px 24px',
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '14px',
+        backgroundColor: fullscreen ? 'var(--bg-secondary)' : 'var(--bg-card)',
+        borderRadius: fullscreen ? 'var(--radius-lg)' : 'var(--radius-md)',
+        height: fullscreen ? '100%' : 'auto',
+      }}
+      onClick={handleCanvasClick}
+    >
+      {/* Header Bar */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--accent-cyan)' }} />
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '-0.01em', color: 'var(--text-primary)' }}>
-              Physical Grid Topology & Real-time Flow
+            <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--accent-cyan)' }} />
+            <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+              Physical Grid Topology & Dynamic Power Flow
             </h3>
+            <span style={{
+              fontSize: '0.67rem', fontWeight: 700, padding: '2px 7px', borderRadius: 4,
+              backgroundColor: 'var(--accent-cyan-dim)', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)'
+            }}>
+              4-STAGE ARCHITECTURE
+            </span>
           </div>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-            P2 Simulator Environment State • Single-line Transmission Model
+          <p style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Generation ➔ Transmission ➔ Distribution/Storage ➔ Connected Loads · Hover or click nodes to inspect
           </p>
         </div>
 
-        {/* Legend */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: 'var(--accent-cyan)' }} />
-            <span>Online / Energized</span>
+        {/* Legend & Maximize Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.73rem', color: 'var(--text-secondary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--accent-cyan)' }} />
+              <span>Active Flow</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--accent-amber)' }} />
+              <span>Overloaded</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--accent-rose)' }} />
+              <span>Fault / Offline</span>
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: 'var(--accent-rose)' }} />
-            <span>Tripped / Offline</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: 'var(--accent-amber)' }} />
-            <span>Overloaded / Shed</span>
-          </div>
+
+          <button
+            onClick={() => setIsMaximized((v) => !v)}
+            title={fullscreen ? 'Close fullscreen' : 'Expand full topology'}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '5px 11px', borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border-card)', backgroundColor: 'var(--bg-tertiary)',
+              color: 'var(--text-secondary)', fontSize: '0.73rem', fontWeight: 600,
+              cursor: 'pointer', transition: 'all var(--transition-fast)',
+            }}
+          >
+            {fullscreen ? (
+              <>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 0 2-2h3M3 16h3a2 2 0 0 0 2 2v3" />
+                </svg>
+                <span>Collapse</span>
+              </>
+            ) : (
+              <>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" /><line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" />
+                </svg>
+                <span>Expand</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
 
-      {/* Active Failures Alert Bar if any */}
-      {failures.length > 0 && (
+      {/* Outage Banner if Failures Exist */}
+      {(failures.length > 0 || isHospitalDistressed) && (
         <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '8px 14px',
-          borderRadius: 'var(--radius-sm)',
-          backgroundColor: 'var(--accent-rose-dim)',
-          border: '1px solid var(--accent-rose)',
-          marginBottom: '16px',
-          fontSize: '0.8rem',
-          color: 'var(--accent-rose)'
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '8px 14px', borderRadius: 'var(--radius-sm)',
+          backgroundColor: 'var(--accent-rose-dim)', border: '1px solid var(--accent-rose)',
+          fontSize: '0.78rem', color: 'var(--accent-rose)',
         }}>
-          <IconAlertTriangle size={16} color="var(--accent-rose)" />
-          <span style={{ fontWeight: 600 }}>Active Outage Alert:</span>
-          <span>{failures.join(' • ')}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <IconAlertTriangle size={15} color="var(--accent-rose)" />
+            <span style={{ fontWeight: 700 }}>Grid Fault Event:</span>
+            <span>
+              {failures.length > 0 ? failures.join(' • ') : 'Substation disturbance detected'}
+            </span>
+          </div>
+          {isHospitalDistressed && (
+            <span style={{
+              fontWeight: 700, padding: '2px 8px', borderRadius: 4,
+              backgroundColor: 'var(--accent-rose)', color: '#ffffff', fontSize: '0.7rem'
+            }}>
+              CRITICAL LOAD AT RISK
+            </span>
+          )}
         </div>
       )}
 
-      {/* SVG Canvas for Grid Connectivity & Nodes */}
+      {/* Responsive SVG Grid Canvas */}
       <div style={{
-        width: '100%',
-        minHeight: '380px',
         position: 'relative',
+        width: '100%',
         backgroundColor: 'var(--bg-secondary)',
         borderRadius: 'var(--radius-md)',
-        border: '1px solid var(--border-color)',
-        padding: '24px 16px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between'
+        border: '1px solid var(--border-card)',
+        padding: '12px 0',
+        overflow: 'hidden',
       }}>
-        {/* SVG Transmission Lines Overlay */}
-        <svg style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          pointerEvents: 'none',
-          zIndex: 1
-        }}>
-          {/* S1 -> S2 (TL1) */}
-          <line
-            x1="30%" y1="35%"
-            x2="50%" y2="35%"
-            stroke={tl1.online ? 'var(--accent-cyan)' : 'var(--accent-rose)'}
-            strokeWidth="3"
-            className={tl1.online ? 'flow-active' : ''}
-            strokeDasharray={tl1.online ? '6 4' : 'none'}
-            opacity={tl1.online ? 0.8 : 0.4}
-          />
+        <svg
+          id="grid-svg"
+          viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+          preserveAspectRatio="xMidYMid meet"
+          style={{
+            width: '100%',
+            height: 'auto',
+            maxHeight: fullscreen ? '70vh' : '460px',
+            display: 'block',
+            userSelect: 'none',
+          }}
+          onClick={handleCanvasClick}
+        >
+          {/* Background capture for deselect */}
+          <rect id="svg-bg" x="0" y="0" width={SVG_W} height={SVG_H} fill="transparent" />
 
-          {/* S2 -> S3 (TL4) */}
-          <line
-            x1="50%" y1="35%"
-            x2="70%" y2="35%"
-            stroke={isTl4Overloaded ? 'var(--accent-amber)' : (tl4.online ? 'var(--accent-cyan)' : 'var(--accent-rose)')}
-            strokeWidth={isTl4Overloaded ? '4' : '3'}
-            className={isTl4Overloaded ? 'flow-overload' : (tl4.online ? 'flow-active' : '')}
-            strokeDasharray="6 4"
-            opacity={tl4.online ? 0.9 : 0.4}
-          />
+          {/* 4 Zone Header Labels in SVG */}
+          <g opacity="0.65">
+            <text x="95" y="32" textAnchor="middle" fill="var(--text-muted)" fontSize="10.5" fontWeight="700" letterSpacing="0.08em">
+              1. GENERATION
+            </text>
+            <text x="280" y="32" textAnchor="middle" fill="var(--text-muted)" fontSize="10.5" fontWeight="700" letterSpacing="0.08em">
+              2. TRANSMISSION (S1)
+            </text>
+            <text x="460" y="32" textAnchor="middle" fill="var(--text-muted)" fontSize="10.5" fontWeight="700" letterSpacing="0.08em">
+              3. ROUTING & STORAGE (S2 / B1)
+            </text>
+            <text x="645" y="32" textAnchor="middle" fill="var(--text-muted)" fontSize="10.5" fontWeight="700" letterSpacing="0.08em">
+              4. DISTRIBUTION (S3)
+            </text>
+            <text x="860" y="32" textAnchor="middle" fill="var(--text-muted)" fontSize="10.5" fontWeight="700" letterSpacing="0.08em">
+              5. CONNECTED LOADS
+            </text>
 
-          {/* Generators -> S1 */}
-          <line x1="15%" y1="25%" x2="30%" y2="35%" stroke="var(--accent-cyan)" strokeWidth="2" opacity="0.6" strokeDasharray="4 4" />
-          <line x1="15%" y1="45%" x2="30%" y2="35%" stroke="var(--accent-cyan)" strokeWidth="2" opacity="0.6" strokeDasharray="4 4" />
+            {/* Subtle column guide dividers */}
+            <line x1="185" y1="42" x2="185" y2="445" stroke="var(--border-subtle)" strokeDasharray="3 4" />
+            <line x1="370" y1="42" x2="370" y2="445" stroke="var(--border-subtle)" strokeDasharray="3 4" />
+            <line x1="550" y1="42" x2="550" y2="445" stroke="var(--border-subtle)" strokeDasharray="3 4" />
+            <line x1="740" y1="42" x2="740" y2="445" stroke="var(--border-subtle)" strokeDasharray="3 4" />
+          </g>
 
-          {/* S3 -> Loads */}
-          <line x1="70%" y1="35%" x2="88%" y2="20%" stroke={hospital.connected ? 'var(--accent-emerald)' : 'var(--accent-rose)'} strokeWidth="2" opacity="0.8" strokeDasharray="4 4" />
-          <line x1="70%" y1="35%" x2="88%" y2="35%" stroke={waterPlant.connected ? 'var(--accent-emerald)' : 'var(--accent-rose)'} strokeWidth="2" opacity="0.8" strokeDasharray="4 4" />
-          <line x1="70%" y1="35%" x2="88%" y2="52%" stroke={residential.connected ? 'var(--accent-cyan)' : 'var(--accent-rose)'} strokeWidth="2" opacity="0.8" strokeDasharray="4 4" />
-          <line x1="70%" y1="35%" x2="88%" y2="68%" stroke={factory.connected ? 'var(--accent-cyan)' : 'var(--accent-amber)'} strokeWidth="2" opacity="0.8" strokeDasharray="4 4" />
+          {/* ─── Transmission & Flow Lines ─── */}
+          {/* Base lines & Animated Flow Overlays */}
+          {(() => {
+            const linesData = [
+              // G1 -> S1
+              {
+                id: 'G1-S1',
+                d: 'M 155 155 C 195 155, 205 235, 225 240',
+                online: g1.online && s1.online,
+                color: 'var(--accent-cyan)',
+                active: isLineActiveForInspection('G1-S1'),
+              },
+              // G2 -> S1
+              {
+                id: 'G2-S1',
+                d: 'M 155 330 C 195 330, 205 255, 225 250',
+                online: g2.online && s1.online,
+                color: 'var(--accent-cyan)',
+                active: isLineActiveForInspection('G2-S1'),
+              },
+              // TL1: S1 -> S2
+              {
+                id: 'TL1',
+                d: 'M 335 245 L 400 245',
+                online: tl1.online && s1.online && s2.online,
+                color: tl1.online && s2.online ? 'var(--accent-cyan)' : 'var(--accent-rose)',
+                active: isLineActiveForInspection('TL1'),
+                label: `TL1: ${tl1.load_mw}/${tl1.capacity_mw}MW`,
+                labelX: 367,
+                labelY: 235,
+              },
+              // TL4: S2 -> S3 (Critical Overload Target)
+              {
+                id: 'TL4',
+                d: 'M 520 245 L 585 245',
+                online: tl4.online && s2.online && s3.online,
+                overloaded: isTl4Overloaded,
+                color: isTl4Overloaded ? 'var(--accent-amber)' : (s2.online && tl4.online ? 'var(--accent-cyan)' : 'var(--accent-rose)'),
+                active: isLineActiveForInspection('TL4'),
+                label: `TL4: ${tl4.load_mw}/${tl4.capacity_mw}MW${isTl4Overloaded ? ' ⚠' : ''}`,
+                labelX: 552,
+                labelY: 235,
+              },
+              // B1 Storage Feed -> S2
+              {
+                id: 'B1-S2',
+                d: 'M 460 365 L 460 295',
+                online: battery.online && s2.online,
+                color: 'var(--accent-purple)',
+                active: isLineActiveForInspection('B1-S2'),
+              },
+              // S3 -> Hospital
+              {
+                id: 'S3-HOSPITAL',
+                d: 'M 705 230 C 745 230, 745 100, 785 100',
+                online: hospital.connected && s3.online && s2.online,
+                color: hospital.connected && !isHospitalDistressed ? 'var(--accent-emerald)' : 'var(--accent-rose)',
+                active: isLineActiveForInspection('S3-HOSPITAL'),
+              },
+              // S3 -> Water Plant
+              {
+                id: 'S3-WATER',
+                d: 'M 705 240 C 745 240, 745 195, 785 195',
+                online: waterPlant.connected && s3.online,
+                color: waterPlant.connected ? 'var(--accent-emerald)' : 'var(--accent-rose)',
+                active: isLineActiveForInspection('S3-WATER'),
+              },
+              // S3 -> Residential
+              {
+                id: 'S3-RESIDENTIAL',
+                d: 'M 705 250 C 745 250, 745 290, 785 290',
+                online: residential.connected && s3.online,
+                color: residential.connected ? 'var(--accent-cyan)' : 'var(--accent-rose)',
+                active: isLineActiveForInspection('S3-RESIDENTIAL'),
+              },
+              // S3 -> Factory (Load Shed Target)
+              {
+                id: 'S3-FACTORY',
+                d: 'M 705 260 C 745 260, 745 385, 785 385',
+                online: factory.connected && s3.online,
+                color: factory.connected ? 'var(--accent-cyan)' : 'var(--accent-amber)',
+                active: isLineActiveForInspection('S3-FACTORY'),
+              },
+            ];
 
-          {/* Battery B1 -> S2/S3 Bus */}
-          <line x1="50%" y1="78%" x2="50%" y2="35%" stroke={battery.online ? 'var(--accent-purple)' : 'var(--text-muted)'} strokeWidth="2" strokeDasharray="4 4" opacity="0.7" />
-        </svg>
+            return linesData.map((l) => {
+              const opacity = inspectedId ? (l.active ? 1.0 : 0.12) : 0.8;
+              const strokeWidth = l.active && inspectedId ? 3.5 : (l.overloaded ? 4 : 2.5);
 
-        {/* Interactive Grid Nodes (Z-Index 2) */}
-        <div style={{ position: 'relative', zIndex: 2, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1.2fr', gap: '24px', alignItems: 'center', minHeight: '320px' }}>
-          {/* Column 1: Generators */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Generation Source
-            </div>
-            {generators.map((gen) => (
-              <div
-                key={gen.id}
-                onClick={() => handleNodeClick(gen, 'Generator')}
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--bg-tertiary)',
-                  border: `1px solid ${gen.online ? 'var(--border-color)' : 'var(--accent-rose)'}`,
-                  cursor: 'pointer',
-                  transition: 'all var(--transition-fast)'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>{gen.id}</span>
-                  <span className="badge" style={{
-                    fontSize: '0.65rem',
-                    backgroundColor: gen.online ? 'var(--accent-emerald-dim)' : 'var(--accent-rose-dim)',
-                    color: gen.online ? 'var(--accent-emerald)' : 'var(--accent-rose)'
-                  }}>
-                    {gen.online ? 'Online' : 'Trip'}
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
-                  {gen.available_mw} / {gen.capacity_mw} MW
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Column 2: Substations S1 & S2 */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Transmission Hubs
-            </div>
-
-            {/* S1 Substation */}
-            <div
-              onClick={() => handleNodeClick(substations.find(s => s.id === 'S1') || { id: 'S1' }, 'Substation')}
-              style={{
-                padding: '12px 14px',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'var(--bg-tertiary)',
-                border: '1px solid var(--border-color)',
-                cursor: 'pointer'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>Substation S1</span>
-                <IconCheckCircle size={14} color="var(--accent-emerald)" />
-              </div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                Primary Gen Bus
-              </div>
-            </div>
-
-            {/* TL1 Metric Pill */}
-            <div style={{
-              fontSize: '0.68rem',
-              fontFamily: 'var(--font-mono)',
-              padding: '2px 8px',
-              borderRadius: '4px',
-              backgroundColor: 'var(--bg-primary)',
-              border: '1px solid var(--border-subtle)',
-              alignSelf: 'center',
-              color: 'var(--accent-cyan)'
-            }}>
-              TL1: {tl1.load_mw} / {tl1.capacity_mw} MW
-            </div>
-
-            {/* S2 Substation (Chaos Target) */}
-            {(() => {
-              const s2Online = getSubstationStatus('S2');
               return (
-                <div
-                  onClick={() => handleNodeClick(substations.find(s => s.id === 'S2') || { id: 'S2' }, 'Substation')}
-                  style={{
-                    padding: '12px 14px',
-                    borderRadius: 'var(--radius-sm)',
-                    backgroundColor: s2Online ? 'var(--bg-tertiary)' : 'var(--accent-rose-dim)',
-                    border: `1px solid ${s2Online ? 'var(--border-color)' : 'var(--accent-rose)'}`,
-                    cursor: 'pointer',
-                    boxShadow: s2Online ? 'none' : '0 0 12px rgba(244, 63, 94, 0.3)'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>Substation S2</span>
-                    {s2Online ? (
-                      <IconCheckCircle size={14} color="var(--accent-emerald)" />
-                    ) : (
-                      <IconXCircle size={14} color="var(--accent-rose)" />
-                    )}
-                  </div>
-                  <div style={{ fontSize: '0.7rem', color: s2Online ? 'var(--text-muted)' : 'var(--accent-rose)', marginTop: '4px', fontWeight: s2Online ? 400 : 600 }}>
-                    {s2Online ? 'Active Reroute Node' : 'FAULT: Substation Offline'}
-                  </div>
-                </div>
+                <g key={l.id} opacity={opacity} style={{ transition: 'opacity 0.2s ease' }}>
+                  {/* Underlay trace */}
+                  <path
+                    d={l.d}
+                    fill="none"
+                    stroke={l.online ? 'var(--border-card)' : 'rgba(225,29,72,0.2)'}
+                    strokeWidth={strokeWidth + 2}
+                  />
+
+                  {/* Flow animation path */}
+                  <path
+                    d={l.d}
+                    fill="none"
+                    stroke={l.color}
+                    strokeWidth={strokeWidth}
+                    strokeDasharray={l.online ? (l.overloaded ? '5 4' : '6 5') : '4 6'}
+                    className={l.online ? (l.overloaded ? 'flow-overload' : 'flow-active') : 'flow-offline'}
+                  />
+
+                  {/* Optional Transmission Line Label */}
+                  {l.label && (
+                    <text
+                      x={l.labelX}
+                      y={l.labelY}
+                      textAnchor="middle"
+                      fill={l.overloaded ? 'var(--accent-amber)' : 'var(--text-muted)'}
+                      fontSize="9.5"
+                      fontFamily="var(--font-mono)"
+                      fontWeight="700"
+                    >
+                      {l.label}
+                    </text>
+                  )}
+                </g>
               );
-            })()}
-          </div>
+            });
+          })()}
 
-          {/* Column 3: S3 & Battery B1 */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Distribution & Storage
-            </div>
+          {/* ─── Grid Nodes ─── */}
 
-            {/* TL4 Overload Indicator */}
-            <div style={{
-              fontSize: '0.68rem',
-              fontFamily: 'var(--font-mono)',
-              padding: '4px 8px',
-              borderRadius: '4px',
-              backgroundColor: isTl4Overloaded ? 'var(--accent-amber-dim)' : 'var(--bg-primary)',
-              border: `1px solid ${isTl4Overloaded ? 'var(--accent-amber)' : 'var(--border-subtle)'}`,
-              alignSelf: 'center',
-              color: isTl4Overloaded ? 'var(--accent-amber)' : 'var(--accent-cyan)',
-              fontWeight: isTl4Overloaded ? 700 : 500
-            }}>
-              TL4: {tl4.load_mw} / {tl4.capacity_mw} MW {isTl4Overloaded && '⚠️ OVERLOAD'}
-            </div>
+          {/* 1. Generator G1 */}
+          {(() => {
+            const isHovered = hoveredNodeId === 'G1';
+            const isSelected = selectedNodeId === 'G1';
+            return (
+              <g
+                transform="translate(45, 115)"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredNodeId('G1')}
+                onMouseLeave={() => setHoveredNodeId(null)}
+                onClick={(e) => { e.stopPropagation(); handleNodeClick('G1', g1, 'Generator'); }}
+              >
+                <rect
+                  width="110" height="78" rx="8"
+                  fill="var(--bg-card)"
+                  stroke={isSelected ? 'var(--accent-cyan)' : (isHovered ? 'var(--accent-cyan)' : 'var(--border-card)')}
+                  strokeWidth={isSelected ? '2.5' : '1.5'}
+                  filter={isHovered || isSelected ? 'drop-shadow(0 4px 10px rgba(2,132,199,0.2))' : 'none'}
+                />
+                <circle cx="16" cy="18" r="5" fill={g1.online ? 'var(--accent-emerald)' : 'var(--accent-rose)'} />
+                <text x="28" y="21" fill="var(--text-primary)" fontSize="12" fontWeight="700">G1 Primary</text>
+                <text x="14" y="42" fill="var(--text-muted)" fontSize="9.5" fontWeight="500">Thermal Plant</text>
+                <text x="14" y="62" fill="var(--accent-cyan)" fontSize="11" fontFamily="var(--font-mono)" fontWeight="700">
+                  {g1.available_mw} MW
+                </text>
+                <text x="80" y="62" fill="var(--text-muted)" fontSize="9" fontFamily="var(--font-mono)">
+                  /{g1.capacity_mw}
+                </text>
+              </g>
+            );
+          })()}
 
-            {/* S3 Substation */}
-            <div
-              onClick={() => handleNodeClick(substations.find(s => s.id === 'S3') || { id: 'S3' }, 'Substation')}
-              style={{
-                padding: '12px 14px',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'var(--bg-tertiary)',
-                border: '1px solid var(--border-color)',
-                cursor: 'pointer'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>Substation S3</span>
-                <IconCheckCircle size={14} color="var(--accent-emerald)" />
-              </div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                Distribution Feed Bus
-              </div>
-            </div>
+          {/* 2. Generator G2 (Solar) */}
+          {(() => {
+            const isHovered = hoveredNodeId === 'G2_SOLAR' || hoveredNodeId === 'G2';
+            const isSelected = selectedNodeId === 'G2_SOLAR' || selectedNodeId === 'G2';
+            return (
+              <g
+                transform="translate(45, 290)"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredNodeId('G2_SOLAR')}
+                onMouseLeave={() => setHoveredNodeId(null)}
+                onClick={(e) => { e.stopPropagation(); handleNodeClick('G2_SOLAR', g2, 'Generator'); }}
+              >
+                <rect
+                  width="110" height="78" rx="8"
+                  fill="var(--bg-card)"
+                  stroke={isSelected ? 'var(--accent-cyan)' : (isHovered ? 'var(--accent-cyan)' : 'var(--border-card)')}
+                  strokeWidth={isSelected ? '2.5' : '1.5'}
+                  filter={isHovered || isSelected ? 'drop-shadow(0 4px 10px rgba(2,132,199,0.2))' : 'none'}
+                />
+                <circle cx="16" cy="18" r="5" fill={g2.online ? 'var(--accent-emerald)' : 'var(--accent-rose)'} />
+                <text x="28" y="21" fill="var(--text-primary)" fontSize="12" fontWeight="700">G2 Solar</text>
+                <text x="14" y="42" fill="var(--text-muted)" fontSize="9.5" fontWeight="500">Renewable Farm</text>
+                <text x="14" y="62" fill="var(--accent-cyan)" fontSize="11" fontFamily="var(--font-mono)" fontWeight="700">
+                  {g2.available_mw} MW
+                </text>
+                <text x="80" y="62" fill="var(--text-muted)" fontSize="9" fontFamily="var(--font-mono)">
+                  /{g2.capacity_mw}
+                </text>
+              </g>
+            );
+          })()}
 
-            {/* Battery B1 */}
-            <div
-              onClick={() => handleNodeClick(battery, 'Battery')}
-              style={{
-                padding: '12px 14px',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'var(--bg-tertiary)',
-                border: '1px solid var(--border-color)',
-                cursor: 'pointer'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <IconBattery size={15} color="var(--accent-purple)" />
-                  <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>B1 Storage</span>
-                </div>
-                <span style={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', color: 'var(--accent-purple)' }}>
+          {/* 3. Substation S1 */}
+          {(() => {
+            const isHovered = hoveredNodeId === 'S1';
+            const isSelected = selectedNodeId === 'S1';
+            return (
+              <g
+                transform="translate(225, 205)"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredNodeId('S1')}
+                onMouseLeave={() => setHoveredNodeId(null)}
+                onClick={(e) => { e.stopPropagation(); handleNodeClick('S1', s1, 'Substation'); }}
+              >
+                <rect
+                  width="110" height="80" rx="8"
+                  fill="var(--bg-card)"
+                  stroke={isSelected ? 'var(--accent-cyan)' : (isHovered ? 'var(--accent-cyan)' : 'var(--border-card)')}
+                  strokeWidth={isSelected ? '2.5' : '1.5'}
+                  filter={isHovered || isSelected ? 'drop-shadow(0 4px 10px rgba(2,132,199,0.2))' : 'none'}
+                />
+                <circle cx="16" cy="18" r="5" fill="var(--accent-emerald)" />
+                <text x="28" y="21" fill="var(--text-primary)" fontSize="12" fontWeight="700">Substation S1</text>
+                <text x="14" y="42" fill="var(--text-muted)" fontSize="9.5">Gen Aggregate Bus</text>
+                <text x="14" y="64" fill="var(--accent-cyan)" fontSize="10.5" fontFamily="var(--font-mono)" fontWeight="600">
+                  230 kV Online
+                </text>
+              </g>
+            );
+          })()}
+
+          {/* 4. Substation S2 (Primary Fault/Chaos Node) */}
+          {(() => {
+            const isHovered = hoveredNodeId === 'S2';
+            const isSelected = selectedNodeId === 'S2';
+            const isFaulted = !s2.online;
+            return (
+              <g
+                transform="translate(400, 205)"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredNodeId('S2')}
+                onMouseLeave={() => setHoveredNodeId(null)}
+                onClick={(e) => { e.stopPropagation(); handleNodeClick('S2', s2, 'Substation'); }}
+              >
+                {/* Fault aura if offline */}
+                {isFaulted && (
+                  <rect
+                    x="-4" y="-4" width="128" height="88" rx="12"
+                    fill="none" stroke="var(--accent-rose)" strokeWidth="2"
+                    className="animate-fault"
+                  />
+                )}
+                <rect
+                  width="120" height="80" rx="8"
+                  fill={isFaulted ? 'var(--accent-rose-dim)' : 'var(--bg-card)'}
+                  stroke={isFaulted ? 'var(--accent-rose)' : (isSelected ? 'var(--accent-cyan)' : (isHovered ? 'var(--accent-cyan)' : 'var(--border-card)'))}
+                  strokeWidth={isSelected || isFaulted ? '2.5' : '1.5'}
+                  filter={isHovered || isSelected ? 'drop-shadow(0 4px 10px rgba(2,132,199,0.2))' : 'none'}
+                />
+                <circle cx="16" cy="18" r="5" fill={isFaulted ? 'var(--accent-rose)' : 'var(--accent-emerald)'} />
+                <text x="28" y="21" fill={isFaulted ? 'var(--accent-rose)' : 'var(--text-primary)'} fontSize="12" fontWeight="700">
+                  Substation S2
+                </text>
+                <text x="14" y="42" fill={isFaulted ? 'var(--accent-rose)' : 'var(--text-muted)'} fontSize="9.5" fontWeight={isFaulted ? 600 : 400}>
+                  {isFaulted ? 'FAULT: Offline' : 'Transmission Hub'}
+                </text>
+                <text x="14" y="64" fill={isFaulted ? 'var(--accent-rose)' : 'var(--accent-cyan)'} fontSize="10" fontFamily="var(--font-mono)" fontWeight="600">
+                  {isFaulted ? 'OUTAGE DETECTED' : 'TL1 ➔ TL4 Flow'}
+                </text>
+              </g>
+            );
+          })()}
+
+          {/* 5. Battery B1 Storage */}
+          {(() => {
+            const isHovered = hoveredNodeId === 'B1';
+            const isSelected = selectedNodeId === 'B1';
+            return (
+              <g
+                transform="translate(400, 365)"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredNodeId('B1')}
+                onMouseLeave={() => setHoveredNodeId(null)}
+                onClick={(e) => { e.stopPropagation(); handleNodeClick('B1', battery, 'Battery'); }}
+              >
+                <rect
+                  width="120" height="74" rx="8"
+                  fill="var(--bg-card)"
+                  stroke={isSelected ? 'var(--accent-purple)' : (isHovered ? 'var(--accent-purple)' : 'var(--border-card)')}
+                  strokeWidth={isSelected ? '2.5' : '1.5'}
+                  filter={isHovered || isSelected ? 'drop-shadow(0 4px 10px rgba(124,58,237,0.2))' : 'none'}
+                />
+                <circle cx="16" cy="18" r="5" fill="var(--accent-purple)" />
+                <text x="28" y="21" fill="var(--text-primary)" fontSize="12" fontWeight="700">B1 Storage</text>
+                <text x="14" y="40" fill="var(--text-muted)" fontSize="9.5">Grid Reserve</text>
+                <text x="14" y="58" fill="var(--accent-purple)" fontSize="11" fontFamily="var(--font-mono)" fontWeight="700">
                   {battery.remaining_mwh} MWh
-                </span>
-              </div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                Max Output: {battery.max_output_mw} MW
-              </div>
-            </div>
-          </div>
+                </text>
+                <text x="75" y="58" fill="var(--text-muted)" fontSize="9" fontFamily="var(--font-mono)">
+                  /{battery.capacity_mwh}
+                </text>
+              </g>
+            );
+          })()}
 
-          {/* Column 4: Loads (Critical vs Normal) */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Connected Loads
-            </div>
+          {/* 6. Substation S3 (Distribution Bus) */}
+          {(() => {
+            const isHovered = hoveredNodeId === 'S3';
+            const isSelected = selectedNodeId === 'S3';
+            return (
+              <g
+                transform="translate(585, 205)"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredNodeId('S3')}
+                onMouseLeave={() => setHoveredNodeId(null)}
+                onClick={(e) => { e.stopPropagation(); handleNodeClick('S3', s3, 'Substation'); }}
+              >
+                <rect
+                  width="120" height="80" rx="8"
+                  fill="var(--bg-card)"
+                  stroke={isSelected ? 'var(--accent-cyan)' : (isHovered ? 'var(--accent-cyan)' : 'var(--border-card)')}
+                  strokeWidth={isSelected ? '2.5' : '1.5'}
+                  filter={isHovered || isSelected ? 'drop-shadow(0 4px 10px rgba(2,132,199,0.2))' : 'none'}
+                />
+                <circle cx="16" cy="18" r="5" fill="var(--accent-emerald)" />
+                <text x="28" y="21" fill="var(--text-primary)" fontSize="12" fontWeight="700">Substation S3</text>
+                <text x="14" y="42" fill="var(--text-muted)" fontSize="9.5">Distribution Bus</text>
+                <text x="14" y="64" fill="var(--accent-cyan)" fontSize="10.5" fontFamily="var(--font-mono)" fontWeight="600">
+                  4 Feeder Lines
+                </text>
+              </g>
+            );
+          })()}
 
-            {/* Hospital (Critical Node) */}
-            <div
-              onClick={() => handleNodeClick(hospital, 'Load')}
-              style={{
-                padding: '10px 12px',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: hospital.connected && hospital.supplied_mw >= hospital.demand_mw
-                  ? 'var(--bg-tertiary)'
-                  : 'var(--accent-rose-dim)',
-                border: `1px solid ${hospital.connected && hospital.supplied_mw >= hospital.demand_mw
-                  ? 'var(--accent-emerald)'
-                  : 'var(--accent-rose)'}`,
-                cursor: 'pointer',
-                boxShadow: hospital.connected ? 'none' : '0 0 10px rgba(244, 63, 94, 0.4)'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <IconHospital size={15} color={hospital.connected ? 'var(--accent-emerald)' : 'var(--accent-rose)'} />
-                  <span style={{ fontWeight: 700, fontSize: '0.8rem' }}>HOSPITAL</span>
-                </div>
-                <span className="badge" style={{
-                  fontSize: '0.6rem',
-                  backgroundColor: 'var(--accent-emerald-dim)',
-                  color: 'var(--accent-emerald)'
-                }}>
+          {/* ─── Connected Loads (Zone 4) ─── */}
+
+          {/* 7. Hospital (Critical) */}
+          {(() => {
+            const isHovered = hoveredNodeId === 'HOSPITAL';
+            const isSelected = selectedNodeId === 'HOSPITAL';
+            return (
+              <g
+                transform="translate(785, 68)"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredNodeId('HOSPITAL')}
+                onMouseLeave={() => setHoveredNodeId(null)}
+                onClick={(e) => { e.stopPropagation(); handleNodeClick('HOSPITAL', hospital, 'Load'); }}
+              >
+                {isHospitalDistressed && (
+                  <rect
+                    x="-4" y="-4" width="148" height="74" rx="10"
+                    fill="none" stroke="var(--accent-rose)" strokeWidth="2"
+                    className="animate-fault"
+                  />
+                )}
+                <rect
+                  width="140" height="66" rx="8"
+                  fill={isHospitalDistressed ? 'var(--accent-rose-dim)' : 'var(--bg-card)'}
+                  stroke={isHospitalDistressed ? 'var(--accent-rose)' : (isSelected ? 'var(--accent-emerald)' : (isHovered ? 'var(--accent-emerald)' : 'var(--border-card)'))}
+                  strokeWidth={isSelected || isHospitalDistressed ? '2.5' : '1.5'}
+                  filter={isHovered || isSelected ? 'drop-shadow(0 4px 10px rgba(5,150,105,0.2))' : 'none'}
+                />
+                <circle cx="15" cy="17" r="5" fill={isHospitalDistressed ? 'var(--accent-rose)' : 'var(--accent-emerald)'} />
+                <text x="26" y="20" fill="var(--text-primary)" fontSize="11.5" fontWeight="700">HOSPITAL</text>
+                <rect x="92" y="10" width="40" height="14" rx="3" fill="var(--accent-emerald-dim)" />
+                <text x="112" y="20" fill="var(--accent-emerald)" fontSize="7.5" fontWeight="800" textAnchor="middle">
                   CRITICAL
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Supplied:</span>
-                <span style={{ color: hospital.supplied_mw >= hospital.demand_mw ? 'var(--accent-emerald)' : 'var(--accent-rose)', fontWeight: 700 }}>
+                </text>
+                <text x="14" y="38" fill="var(--text-muted)" fontSize="9">Emergency Node</text>
+                <text x="14" y="54" fill={isHospitalDistressed ? 'var(--accent-rose)' : 'var(--accent-emerald)'} fontSize="10.5" fontFamily="var(--font-mono)" fontWeight="700">
                   {hospital.supplied_mw} / {hospital.demand_mw} MW
-                </span>
-              </div>
-            </div>
+                </text>
+              </g>
+            );
+          })()}
 
-            {/* Water Plant (Critical Node) */}
-            <div
-              onClick={() => handleNodeClick(waterPlant, 'Load')}
-              style={{
-                padding: '10px 12px',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'var(--bg-tertiary)',
-                border: '1px solid var(--accent-emerald)',
-                cursor: 'pointer'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <IconDroplet size={15} color="var(--accent-cyan)" />
-                  <span style={{ fontWeight: 700, fontSize: '0.8rem' }}>WATER PLANT</span>
-                </div>
-                <span className="badge" style={{ fontSize: '0.6rem', backgroundColor: 'var(--accent-emerald-dim)', color: 'var(--accent-emerald)' }}>
+          {/* 8. Water Plant (Critical) */}
+          {(() => {
+            const isHovered = hoveredNodeId === 'WATER_PLANT';
+            const isSelected = selectedNodeId === 'WATER_PLANT';
+            return (
+              <g
+                transform="translate(785, 162)"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredNodeId('WATER_PLANT')}
+                onMouseLeave={() => setHoveredNodeId(null)}
+                onClick={(e) => { e.stopPropagation(); handleNodeClick('WATER_PLANT', waterPlant, 'Load'); }}
+              >
+                <rect
+                  width="140" height="66" rx="8"
+                  fill="var(--bg-card)"
+                  stroke={isSelected ? 'var(--accent-emerald)' : (isHovered ? 'var(--accent-emerald)' : 'var(--border-card)')}
+                  strokeWidth={isSelected ? '2.5' : '1.5'}
+                  filter={isHovered || isSelected ? 'drop-shadow(0 4px 10px rgba(5,150,105,0.2))' : 'none'}
+                />
+                <circle cx="15" cy="17" r="5" fill="var(--accent-emerald)" />
+                <text x="26" y="20" fill="var(--text-primary)" fontSize="11.5" fontWeight="700">WATER PLANT</text>
+                <rect x="92" y="10" width="40" height="14" rx="3" fill="var(--accent-emerald-dim)" />
+                <text x="112" y="20" fill="var(--accent-emerald)" fontSize="7.5" fontWeight="800" textAnchor="middle">
                   CRITICAL
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Supplied:</span>
-                <span style={{ color: 'var(--accent-emerald)', fontWeight: 700 }}>
+                </text>
+                <text x="14" y="38" fill="var(--text-muted)" fontSize="9">Municipal Treatment</text>
+                <text x="14" y="54" fill="var(--accent-emerald)" fontSize="10.5" fontFamily="var(--font-mono)" fontWeight="700">
                   {waterPlant.supplied_mw} / {waterPlant.demand_mw} MW
-                </span>
-              </div>
-            </div>
+                </text>
+              </g>
+            );
+          })()}
 
-            {/* Residential 1 (Normal Node) */}
-            <div
-              onClick={() => handleNodeClick(residential, 'Load')}
-              style={{
-                padding: '10px 12px',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'var(--bg-tertiary)',
-                border: '1px solid var(--border-color)',
-                cursor: 'pointer'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontWeight: 600, fontSize: '0.8rem' }}>RESIDENTIAL 1</span>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Normal</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Demand:</span>
-                <span>{residential.supplied_mw} / {residential.demand_mw} MW</span>
-              </div>
-            </div>
+          {/* 9. Residential Zone */}
+          {(() => {
+            const isHovered = hoveredNodeId === 'RESIDENTIAL';
+            const isSelected = selectedNodeId === 'RESIDENTIAL';
+            return (
+              <g
+                transform="translate(785, 256)"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredNodeId('RESIDENTIAL')}
+                onMouseLeave={() => setHoveredNodeId(null)}
+                onClick={(e) => { e.stopPropagation(); handleNodeClick('RESIDENTIAL', residential, 'Load'); }}
+              >
+                <rect
+                  width="140" height="66" rx="8"
+                  fill="var(--bg-card)"
+                  stroke={isSelected ? 'var(--accent-cyan)' : (isHovered ? 'var(--accent-cyan)' : 'var(--border-card)')}
+                  strokeWidth={isSelected ? '2.5' : '1.5'}
+                  filter={isHovered || isSelected ? 'drop-shadow(0 4px 10px rgba(2,132,199,0.2))' : 'none'}
+                />
+                <circle cx="15" cy="17" r="5" fill="var(--accent-cyan)" />
+                <text x="26" y="20" fill="var(--text-primary)" fontSize="11" fontWeight="700">RESIDENTIAL</text>
+                <rect x="96" y="10" width="36" height="14" rx="3" fill="var(--bg-tertiary)" />
+                <text x="114" y="20" fill="var(--text-muted)" fontSize="7.5" fontWeight="700" textAnchor="middle">
+                  NORMAL
+                </text>
+                <text x="14" y="38" fill="var(--text-muted)" fontSize="9">Metro Feeder</text>
+                <text x="14" y="54" fill="var(--accent-cyan)" fontSize="10.5" fontFamily="var(--font-mono)" fontWeight="600">
+                  {residential.supplied_mw} / {residential.demand_mw} MW
+                </text>
+              </g>
+            );
+          })()}
 
-            {/* Factory (Normal - Load Shed Target) */}
-            <div
-              onClick={() => handleNodeClick(factory, 'Load')}
-              style={{
-                padding: '10px 12px',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: factory.connected ? 'var(--bg-tertiary)' : 'var(--accent-amber-dim)',
-                border: `1px solid ${factory.connected ? 'var(--border-color)' : 'var(--accent-amber)'}`,
-                cursor: 'pointer'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <IconFactory size={15} color={factory.connected ? 'var(--text-muted)' : 'var(--accent-amber)'} />
-                  <span style={{ fontWeight: 600, fontSize: '0.8rem' }}>FACTORY</span>
-                </div>
-                <span className="badge" style={{
-                  fontSize: '0.6rem',
-                  backgroundColor: factory.connected ? 'rgba(100, 116, 139, 0.2)' : 'var(--accent-amber-dim)',
-                  color: factory.connected ? 'var(--text-muted)' : 'var(--accent-amber)'
-                }}>
-                  {factory.connected ? 'Industrial' : 'SHED'}
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', marginTop: '4px', fontFamily: 'var(--font-mono)' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Status:</span>
-                <span style={{ color: factory.connected ? 'var(--text-primary)' : 'var(--accent-amber)', fontWeight: 600 }}>
-                  {factory.connected ? `${factory.supplied_mw} MW Connected` : '0 MW (Load Shed)'}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+          {/* 10. Factory (Industrial - Load Shed Target) */}
+          {(() => {
+            const isHovered = hoveredNodeId === 'FACTORY';
+            const isSelected = selectedNodeId === 'FACTORY';
+            const isShed = !factory.connected || factory.supplied_mw === 0;
+            return (
+              <g
+                transform="translate(785, 350)"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredNodeId('FACTORY')}
+                onMouseLeave={() => setHoveredNodeId(null)}
+                onClick={(e) => { e.stopPropagation(); handleNodeClick('FACTORY', factory, 'Load'); }}
+              >
+                <rect
+                  width="140" height="66" rx="8"
+                  fill={isShed ? 'var(--accent-amber-dim)' : 'var(--bg-card)'}
+                  stroke={isShed ? 'var(--accent-amber)' : (isSelected ? 'var(--accent-cyan)' : (isHovered ? 'var(--accent-cyan)' : 'var(--border-card)'))}
+                  strokeWidth={isSelected || isShed ? '2.5' : '1.5'}
+                  filter={isHovered || isSelected ? 'drop-shadow(0 4px 10px rgba(2,132,199,0.2))' : 'none'}
+                />
+                <circle cx="15" cy="17" r="5" fill={isShed ? 'var(--accent-amber)' : 'var(--accent-cyan)'} />
+                <text x="26" y="20" fill="var(--text-primary)" fontSize="11.5" fontWeight="700">FACTORY</text>
+                <rect x="96" y="10" width="36" height="14" rx="3" fill={isShed ? 'var(--accent-amber)' : 'var(--bg-tertiary)'} />
+                <text x="114" y="20" fill={isShed ? '#ffffff' : 'var(--text-muted)'} fontSize="7.5" fontWeight="800" textAnchor="middle">
+                  {isShed ? 'SHED' : 'NORMAL'}
+                </text>
+                <text x="14" y="38" fill="var(--text-muted)" fontSize="9">Heavy Industrial</text>
+                <text x="14" y="54" fill={isShed ? 'var(--accent-amber)' : 'var(--text-primary)'} fontSize="10.5" fontFamily="var(--font-mono)" fontWeight="600">
+                  {isShed ? '0 MW (Load Shed)' : `${factory.supplied_mw} / ${factory.demand_mw} MW`}
+                </text>
+              </g>
+            );
+          })()}
+        </svg>
       </div>
 
-      {/* Detail Inspector Drawer for Clicked Node */}
-      {selectedNode && (
+      {/* Interactive Node Telemetry Inspector Drawer */}
+      {inspectedDetails ? (
         <div style={{
-          marginTop: '16px',
-          padding: '14px 18px',
+          padding: '12px 18px',
           borderRadius: 'var(--radius-sm)',
           backgroundColor: 'var(--bg-secondary)',
-          border: '1px solid var(--border-color)',
+          border: '1px solid var(--border-card)',
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          animation: 'slideInDown 0.15s ease',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: '240px' }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 'var(--radius-sm)',
+              backgroundColor: 'var(--accent-cyan-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              <IconZap size={16} color="var(--accent-cyan)" />
+            </div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-primary)' }}>
+                  {inspectedDetails.title}
+                </span>
+                <span className="badge" style={{
+                  fontSize: '0.64rem',
+                  backgroundColor: inspectedDetails.status.includes('FAULT') || inspectedDetails.status.includes('DEFICIT') ? 'var(--accent-rose-dim)' : 'var(--accent-emerald-dim)',
+                  color: inspectedDetails.status.includes('FAULT') || inspectedDetails.status.includes('DEFICIT') ? 'var(--accent-rose)' : 'var(--accent-emerald)',
+                }}>
+                  {inspectedDetails.status}
+                </span>
+              </div>
+              <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                {inspectedDetails.type} · {inspectedDetails.note}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', fontWeight: 600 }}>
+                Operating Metric
+              </span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.84rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                {inspectedDetails.stat}
+              </span>
+            </div>
+
+            {selectedNodeId && (
+              <button
+                onClick={() => setSelectedNodeId(null)}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: 'var(--radius-xs)',
+                  border: '1px solid var(--border-card)',
+                  backgroundColor: 'var(--bg-tertiary)',
+                  color: 'var(--text-muted)',
+                  fontSize: '0.72rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Clear Selection ✕
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div style={{
+          padding: '8px 14px',
+          borderRadius: 'var(--radius-sm)',
+          backgroundColor: 'var(--bg-tertiary)',
+          fontSize: '0.73rem',
+          color: 'var(--text-muted)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          fontSize: '0.8rem'
         }}>
-          <div>
-            <span style={{ fontWeight: 700, color: 'var(--accent-cyan)' }}>
-              {selectedNode.entityType}: {selectedNode.id}
-            </span>
-            <span style={{ marginLeft: '12px', color: 'var(--text-secondary)' }}>
-              {JSON.stringify(selectedNode)}
-            </span>
-          </div>
-          <button
-            onClick={() => setSelectedNode(null)}
-            style={{ color: 'var(--text-muted)', fontSize: '0.75rem', padding: '2px 8px' }}
-          >
-            Dismiss
-          </button>
+          <span>Tip: Hover or click any grid node to inspect telemetry and highlight connected power flow paths.</span>
+          <span>● Flow particles indicate live dynamic energy transmission</span>
         </div>
       )}
     </div>
+  );
+
+  return (
+    <>
+      {renderContent(false)}
+
+      {/* Smooth Expanded Modal Overlay */}
+      {isMaximized && (
+        <div
+          className="modal-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) setIsMaximized(false); }}
+        >
+          <div style={{
+            width: '94vw',
+            maxWidth: '1500px',
+            height: '90vh',
+            borderRadius: 'var(--radius-lg)',
+            boxShadow: 'var(--shadow-xl)',
+            overflow: 'auto',
+            animation: 'scaleIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            position: 'relative',
+            backgroundColor: 'var(--bg-secondary)',
+          }}>
+            <button
+              onClick={() => setIsMaximized(false)}
+              style={{
+                position: 'absolute', top: 16, right: 16, zIndex: 10,
+                width: 32, height: 32, borderRadius: 'var(--radius-sm)',
+                backgroundColor: 'var(--bg-tertiary)', border: '1px solid var(--border-card)',
+                color: 'var(--text-secondary)', fontSize: '1rem',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer',
+              }}
+            >
+              ✕
+            </button>
+            {renderContent(true)}
+          </div>
+        </div>
+      )}
+    </>
   );
 };
