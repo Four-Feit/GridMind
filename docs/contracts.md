@@ -269,3 +269,33 @@ Supported event types:
 - `WEATHER_DETERIORATION`
 - `DEMAND_SPIKE`
 - `BATTERY_DEPLETION`
+
+---
+
+## 9. Contract: WebSocket Message Envelope (Owner: P4 / P1)
+All messages broadcast over the `/ws` channel are wrapped in a standard envelope to allow the frontend to easily dispatch events.
+
+### Envelope Shape:
+```json
+{
+  "channel": "agent_events",
+  "timestamp": 1720000000.123,
+  "payload": {
+    "timestamp": 1720000000.123,
+    "type": "TOOL_FAILED",
+    "plan_id": 3,
+    "tool": "redistribution_engine",
+    "message": "Tool redistribution_engine failed: TL4 overload",
+    "data": {
+      "line": "TL4",
+      "attempted_mw": 71.0,
+      "capacity_mw": 60.0
+    }
+  }
+}
+```
+
+Available channels:
+- `agent_events`: Streams `AgentEvent` payloads emitted by P1.
+- `grid_updates`: Streams fresh `GridState` snapshots emitted by P2.
+
