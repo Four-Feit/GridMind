@@ -1,29 +1,67 @@
 """
-LLM Prompt Templates (Owned by P1)
+LLM Prompt Templates & Context Formatters (Owned by P1)
 """
-SYSTEM_PROMPT = """You are the autonomous decision-making brain of GridMind, operating a power grid.
-Your objective is to choose the single best capability to resolve power deficits, isolate failures, and maintain electricity to critical infrastructure (hospitals, water plants, emergency services).
+import json
+from typing import Any, Dict
 
-Guidelines:
-1. Analyze the current grid state, outages, and load statuses.
-2. Select EXACTLY ONE capability from the list of available tools.
-3. Supply valid arguments conforming strictly to the tool's JSON schema.
-4. If a previous action failed, do NOT repeat the identical failing action—choose an alternative strategy or adapt your arguments.
-5. Return your response ONLY as structured JSON matching the requested schema.
+SYSTEM_PROMPT = """You are the autonomous decision-making core of GridMind, operating an electrical power grid.
+Your mission is to maintain uninterrupted power to critical facilities (hospitals, water plants, emergency services) while respecting line transmission capacities and physical constraints.
+
+Rules of Engagement:
+1. Review the current grid state: observe online generators, offline substations, line loads, and unserved critical loads.
+2. Review available capabilities: you can ONLY select tools that appear in the 'available_capabilities' list.
+3. Review previous failures & constraints: NEVER repeat an action that previously failed under the same conditions. Adapt your strategy.
+4. Reason quantitatively:
+   - If a critical facility is disconnected due to a substation failure, attempt alternative rerouting or priority load shedding.
+   - If generation drops below demand (deficit), consider discharging the battery or shedding non-critical loads.
+   - Respect known transmission limits (e.g., line capacities).
+5. Output Format:
+   Return ONLY a valid JSON object matching this exact schema:
+   {
+     "action": "<tool_name>",
+     "arguments": { <key>: <value> },
+     "reason": "<one sentence explaining why this tool was chosen>"
+   }
+Do NOT wrap your response with conversational text. Return only the JSON object.
 """
 
-def format_planner_prompt(context: dict) -> str:
-    import json
-    return f"""Current Mission Goal: {context.get('goal')}
 
-Grid State:
-{json.dumps(context.get('grid_state', {}), indent=2)}
+def format_planner_prompt(context: Dict[str, Any]) -> str:
+    """
+    Formats the dynamic prompt payload for the LLM planner.
+    """
+    grid = context.get("grid_state", {})
+    gen_mw = grid.get("generation_mw", 0.0)
+    dem_mw = grid.get("demand_mw", 0.0)
+    margin = gen_mw - dem_mw
 
-Available Capabilities:
+    loads_summary = []
+    for l in grid.get("loads", []):
+        status = "CONNECTED" if l.get("connected", True) else "DISCONNECTED"
+        loads_summary.append(
+            f"- {l.get('id')} ({l.get('priority')}): demand={l.get('demand_mw')}MW, supplied={l.get('supplied_mw')}MW [{status}]"
+        )
+
+    failures_summary = context.get("previous_failures", [])
+    constraints_summary = context.get("known_constraints", [])
+
+    return f"""MISSION GOAL: {context.get('goal', 'Maintain power to critical facilities')}
+
+GRID TELEMETRY SNAPSHOT:
+- Total Generation: {gen_mw:.1f} MW
+- Total Demand: {dem_mw:.1f} MW
+- Power Margin: {margin:+.1f} MW ({'Surplus' if margin >= 0 else 'DEFICIT'})
+- Active Failures: {grid.get('failures', [])}
+
+LOADS STATUS:
+{chr(10).join(loads_summary) if loads_summary else "No loads listed."}
+
+AVAILABLE CAPABILITIES:
 {json.dumps(context.get('available_capabilities', []), indent=2)}
 
-Previous Failures / Known Constraints:
-- Failures: {json.dumps(context.get('previous_failures', []))}
-- Constraints: {json.dumps(context.get('known_constraints', []))}
+WORKING MEMORY & CONSTRAINTS:
+- Past Failures in this Mission: {json.dumps(failures_summary)}
+- Discovered Environmental Constraints: {json.dumps(constraints_summary)}
+- Recent Actions: {json.dumps(context.get('recent_actions', []))}
 
-Select the next action to perform."""
+Select the single best capability to execute next."""
