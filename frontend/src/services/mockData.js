@@ -1,5 +1,5 @@
 /**
- * Mock Mode Data & Event Simulator (Owned by P4)
+ * Mock Mode Data & Event Simulator
  * Provides a deterministic, realistic rehearsal flow matching docs/demo-scenario.md:
  * 1. Stable initial grid
  * 2. Chaos failure: Substation S2 offline, Hospital disconnected

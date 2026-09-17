@@ -3,32 +3,32 @@ import React from 'react';
 export const ArchitecturePage = () => {
   const modules = [
     {
-      id: 'P1',
+      id: 'AGENT',
       title: 'Agent Core (The Brain)',
       path: 'backend/core/, backend/llm/',
       color: 'var(--accent-purple)',
       desc: 'Orchestrates the autonomous loop: StateManager, Memory, Planner, RecoveryEngine, and ActionValidator. Prompts LLM for decisions.'
     },
     {
-      id: 'P2',
-      title: 'Grid Simulator (The World)',
+      id: 'SIMULATOR',
+      title: 'Grid Simulator (The Physical World)',
       path: 'backend/grid/',
       color: 'var(--accent-cyan)',
       desc: 'Simulates physical power grid: generators, substations (S1, S2, S3), transmission line capacities (TL1, TL4), loads, and physical chaos events.'
     },
     {
-      id: 'P3',
-      title: 'Capabilities (The Hands)',
+      id: 'CAPABILITIES',
+      title: 'Tool Registry (The Hands)',
       path: 'backend/capabilities/',
       color: 'var(--accent-amber)',
       desc: 'Tool registry with JSON schema contracts: redistribution_engine, priority_load_manager, battery_engine, grid_analyzer, and outcome verification.'
     },
     {
-      id: 'P4',
-      title: 'API & Telemetry UI (The Window)',
+      id: 'TELEMETRY',
+      title: 'API & Stream Interface (The Window)',
       path: 'backend/api/, frontend/',
       color: 'var(--accent-emerald)',
-      desc: 'FastAPI HTTP endpoints, real-time WebSocket event broadcaster, React 19 control room dashboard, and end-to-end integration test suite.'
+      desc: 'FastAPI HTTP endpoints, real-time WebSocket event broadcaster, cinematic control room dashboard, and end-to-end integration test suite.'
     }
   ];
 
@@ -48,8 +48,8 @@ export const ArchitecturePage = () => {
         <h1 style={{ fontSize: '2.4rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: '12px' }}>
           GridMind System Architecture
         </h1>
-        <p style={{ fontSize: '1.05rem', color: 'var(--text-secondary)', maxWidth: '680px', margin: '0 auto' }}>
-          Modular decoupling between The Brain (P1), The World (P2), The Hands (P3), and The Window (P4).
+        <p style={{ fontSize: '1.05rem', color: 'var(--text-secondary)', maxWidth: '720px', margin: '0 auto' }}>
+          Clean modular decoupling between The Brain (Agent Core), The Physical World (Simulator), The Tools (Capabilities), and The Interface (API & Telemetry).
         </p>
       </div>
 
@@ -77,7 +77,7 @@ export const ArchitecturePage = () => {
 
           {/* Node 2 */}
           <div style={{ padding: '16px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--accent-purple)' }}>
-            <div style={{ fontSize: '0.7rem', color: 'var(--accent-purple)', textTransform: 'uppercase', fontWeight: 600 }}>2. P1 Agent Core</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--accent-purple)', textTransform: 'uppercase', fontWeight: 600 }}>2. Agent Core</div>
             <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>Planner ↔ LLM</div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>Decides ToolCall</div>
           </div>
@@ -86,7 +86,7 @@ export const ArchitecturePage = () => {
 
           {/* Node 3 */}
           <div style={{ padding: '16px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--accent-amber)' }}>
-            <div style={{ fontSize: '0.7rem', color: 'var(--accent-amber)', textTransform: 'uppercase', fontWeight: 600 }}>3. P3 Capability</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--accent-amber)', textTransform: 'uppercase', fontWeight: 600 }}>3. Capability Layer</div>
             <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>Tool Registry</div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>Schema Checked</div>
           </div>
@@ -95,7 +95,7 @@ export const ArchitecturePage = () => {
 
           {/* Node 4 */}
           <div style={{ padding: '16px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--accent-cyan)' }}>
-            <div style={{ fontSize: '0.7rem', color: 'var(--accent-cyan)', textTransform: 'uppercase', fontWeight: 600 }}>4. P2 Simulator</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--accent-cyan)', textTransform: 'uppercase', fontWeight: 600 }}>4. Simulator</div>
             <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>Grid Simulator</div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>Power Balance & Line Limits</div>
           </div>
@@ -104,17 +104,17 @@ export const ArchitecturePage = () => {
 
           {/* Node 5 */}
           <div style={{ padding: '16px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--accent-emerald)' }}>
-            <div style={{ fontSize: '0.7rem', color: 'var(--accent-emerald)', textTransform: 'uppercase', fontWeight: 600 }}>5. P4 Telemetry</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--accent-emerald)', textTransform: 'uppercase', fontWeight: 600 }}>5. Telemetry Stream</div>
             <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>FastAPI / WebSocket</div>
             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>Live Browser Feed</div>
           </div>
         </div>
       </div>
 
-      {/* Module Ownership Breakdown */}
+      {/* Module Breakdown */}
       <section style={{ marginBottom: '48px' }}>
         <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '20px' }}>
-          Module Ownership & Clean Contracts
+          System Architecture & Interface Contracts
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
           {modules.map((m) => (
@@ -139,7 +139,7 @@ export const ArchitecturePage = () => {
       {/* 6 Golden Rules */}
       <section>
         <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '20px' }}>
-          The 6 Golden Rules of the GridMind Framework
+          The 6 Architectural Invariants of GridMind
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
           {rules.map((r, i) => (

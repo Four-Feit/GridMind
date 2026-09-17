@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   IconZap,
   IconShield,
@@ -7,10 +7,65 @@ import {
   IconRotateCcw
 } from '../ui/Icons';
 
-export const MetricsGrid = ({ gridState, events }) => {
-  const gen = gridState?.generation_mw || 0;
-  const demand = gridState?.demand_mw || 0;
-  const balance = gen - demand;
+export const MetricsGrid = ({ gridState, events = [], updateGrid }) => {
+  const gen = gridState?.generation_mw ?? 180;
+  const demand = gridState?.demand_mw ?? 150;
+
+  // Local interactive slider state for smooth dragging
+  const [sliderGen, setSliderGen] = useState(gen);
+  const [sliderDemand, setSliderDemand] = useState(demand);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const isDraggingRef = useRef(false);
+  const debounceTimerRef = useRef(null);
+
+  // Sync with live gridState when not actively dragging
+  useEffect(() => {
+    if (!isDraggingRef.current) {
+      setSliderGen(gen);
+      setSliderDemand(demand);
+    }
+  }, [gen, demand]);
+
+  const balance = sliderGen - sliderDemand;
+
+  // Commit change to FastAPI backend -> Simulator
+  const commitGridUpdate = async (newGen, newDemand) => {
+    if (!updateGrid) return;
+    setIsSyncing(true);
+    try {
+      await updateGrid({
+        generation_mw: Number(newGen),
+        demand_mw: Number(newDemand),
+      });
+    } catch (err) {
+      console.error('Failed to update grid power balance:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleGenChange = (val) => {
+    const num = Number(val);
+    setSliderGen(num);
+    isDraggingRef.current = true;
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      isDraggingRef.current = false;
+      commitGridUpdate(num, sliderDemand);
+    }, 350);
+  };
+
+  const handleDemandChange = (val) => {
+    const num = Number(val);
+    setSliderDemand(num);
+    isDraggingRef.current = true;
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      isDraggingRef.current = false;
+      commitGridUpdate(sliderGen, num);
+    }, 350);
+  };
 
   const loads = gridState?.loads || [];
   const criticalLoads = loads.filter((l) => l.priority === 'critical');
@@ -27,107 +82,234 @@ export const MetricsGrid = ({ gridState, events }) => {
   return (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+      gridTemplateColumns: 'minmax(280px, 1.35fr) repeat(auto-fit, minmax(180px, 1fr))',
       gap: '16px',
-      marginBottom: '24px'
+      marginBottom: '24px',
+      alignItems: 'stretch'
     }}>
-      {/* 1. Generation vs Demand */}
-      <div className="glass-panel" style={{ padding: '16px 20px' }}>
+      {/* 1. Genuinely Editable Power Balance Card */}
+      <div
+        className="glass-panel"
+        style={{
+          padding: '16px 20px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          border: isEditing ? '1px solid var(--accent-cyan)' : '1px solid var(--border-card)',
+          transition: 'border-color var(--transition-fast)',
+        }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Power Balance</span>
-          <IconZap size={16} color={balance >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)'} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <IconZap size={15} color={balance >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)'} />
+            <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Power Balance
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {isSyncing && (
+              <span style={{ fontSize: '0.67rem', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+                syncing...
+              </span>
+            )}
+            <button
+              onClick={() => setIsEditing((v) => !v)}
+              style={{
+                fontSize: '0.69rem',
+                fontWeight: 600,
+                color: isEditing ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                padding: '2px 7px',
+                borderRadius: 'var(--radius-xs)',
+                backgroundColor: isEditing ? 'var(--accent-cyan-dim)' : 'var(--bg-tertiary)',
+                border: '1px solid var(--border-subtle)',
+                cursor: 'pointer',
+              }}
+            >
+              {isEditing ? 'Done' : 'Adjust Sliders'}
+            </button>
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-          <span style={{ fontSize: '1.4rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
-            {gen}
+
+        {/* Sliders & Values */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', margin: '4px 0 10px 0' }}>
+          {/* Generation Row */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '3px' }}>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Generation</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent-cyan)' }}>
+                {sliderGen} MW
+              </span>
+            </div>
+            {isEditing ? (
+              <input
+                type="range"
+                min="40"
+                max="240"
+                step="5"
+                value={sliderGen}
+                onChange={(e) => handleGenChange(e.target.value)}
+                className="power-slider"
+                style={{
+                  background: `linear-gradient(to right, var(--accent-cyan) 0%, var(--accent-cyan) ${((sliderGen - 40) / 200) * 100}%, var(--border-card) ${((sliderGen - 40) / 200) * 100}%, var(--border-card) 100%)`,
+                }}
+              />
+            ) : (
+              <div style={{ width: '100%', height: '4px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '2px', overflow: 'hidden' }}>
+                <div style={{ width: `${Math.min(100, (sliderGen / 220) * 100)}%`, height: '100%', backgroundColor: 'var(--accent-cyan)' }} />
+              </div>
+            )}
+          </div>
+
+          {/* Demand Row */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '3px' }}>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Demand</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)' }}>
+                {sliderDemand} MW
+              </span>
+            </div>
+            {isEditing ? (
+              <input
+                type="range"
+                min="40"
+                max="240"
+                step="5"
+                value={sliderDemand}
+                onChange={(e) => handleDemandChange(e.target.value)}
+                className="power-slider"
+                style={{
+                  background: `linear-gradient(to right, var(--accent-purple) 0%, var(--accent-purple) ${((sliderDemand - 40) / 200) * 100}%, var(--border-card) ${((sliderDemand - 40) / 200) * 100}%, var(--border-card) 100%)`,
+                }}
+              />
+            ) : (
+              <div style={{ width: '100%', height: '4px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '2px', overflow: 'hidden' }}>
+                <div style={{ width: `${Math.min(100, (sliderDemand / 220) * 100)}%`, height: '100%', backgroundColor: 'var(--accent-purple)' }} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Net Balance Divider & Status */}
+        <div style={{
+          borderTop: '1px solid var(--border-card)',
+          paddingTop: '8px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Net balance</span>
+          <span style={{
+            fontSize: '0.86rem',
+            fontWeight: 700,
+            fontFamily: 'var(--font-mono)',
+            color: balance >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)',
+          }}>
+            {balance >= 0 ? `+${balance} MW Surplus` : `${balance} MW Deficit`}
           </span>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>/ {demand} MW</span>
-        </div>
-        <div style={{ fontSize: '0.75rem', marginTop: '6px', color: balance >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)', fontWeight: 600 }}>
-          {balance >= 0 ? `+${balance} MW Surplus` : `${balance} MW Deficit`}
         </div>
       </div>
 
       {/* 2. Critical Facilities Coverage */}
-      <div className="glass-panel" style={{ padding: '16px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Critical Load Health</span>
-          <IconShield size={16} color={criticalHealthPct === 100 ? 'var(--accent-emerald)' : 'var(--accent-rose)'} />
+      <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Critical Facilities
+            </span>
+            <IconShield size={16} color={criticalHealthPct === 100 ? 'var(--accent-emerald)' : 'var(--accent-rose)'} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+            <span style={{
+              fontSize: '1.4rem',
+              fontWeight: 700,
+              fontFamily: 'var(--font-mono)',
+              color: criticalHealthPct === 100 ? 'var(--accent-emerald)' : 'var(--accent-rose)'
+            }}>
+              {criticalHealthPct}%
+            </span>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              ({criticalPowered.length}/{criticalLoads.length} secured)
+            </span>
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-          <span style={{
-            fontSize: '1.4rem',
-            fontWeight: 700,
-            fontFamily: 'var(--font-mono)',
-            color: criticalHealthPct === 100 ? 'var(--accent-emerald)' : 'var(--accent-rose)'
-          }}>
-            {criticalHealthPct}%
-          </span>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            ({criticalPowered.length}/{criticalLoads.length} Online)
-          </span>
-        </div>
-        <div style={{ fontSize: '0.75rem', marginTop: '6px', color: 'var(--text-muted)' }}>
-          {criticalHealthPct === 100 ? 'All high-priority nodes secured' : 'Deficit on critical infrastructure!'}
+        <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '8px' }}>
+          {criticalHealthPct === 100 ? 'Hospital & municipal supply nominal' : 'Critical load deficit detected!'}
         </div>
       </div>
 
       {/* 3. Battery Storage */}
-      <div className="glass-panel" style={{ padding: '16px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>B1 Storage Reserve</span>
-          <IconBattery size={16} color="var(--accent-cyan)" />
+      <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              B1 Storage Reserve
+            </span>
+            <IconBattery size={16} color="var(--accent-purple)" />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+            <span style={{ fontSize: '1.4rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
+              {battery.remaining_mwh}
+            </span>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>/ {battery.capacity_mwh} MWh</span>
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-          <span style={{ fontSize: '1.4rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
-            {battery.remaining_mwh}
-          </span>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>/ {battery.capacity_mwh} MWh</span>
-        </div>
-        {/* Visual Progress Bar */}
-        <div style={{ width: '100%', height: '4px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '2px', marginTop: '10px', overflow: 'hidden' }}>
-          <div style={{ width: `${batteryPct}%`, height: '100%', backgroundColor: 'var(--accent-cyan)', transition: 'width 0.4s ease' }} />
+        <div>
+          <div style={{ width: '100%', height: '4px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '2px', overflow: 'hidden' }}>
+            <div style={{ width: `${batteryPct}%`, height: '100%', backgroundColor: 'var(--accent-purple)', transition: 'width 0.4s ease' }} />
+          </div>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+            {batteryPct}% capacity available
+          </div>
         </div>
       </div>
 
-      {/* 4. Replans & Recoveries */}
-      <div className="glass-panel" style={{ padding: '16px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Dynamic Replans</span>
-          <IconRotateCcw size={16} color="var(--accent-purple)" />
+      {/* 4. Autonomous Replans */}
+      <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Dynamic Replans
+            </span>
+            <IconRotateCcw size={16} color="var(--accent-cyan)" />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+            <span style={{ fontSize: '1.4rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
+              {replanCount}
+            </span>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              ({failureCount} failures handled)
+            </span>
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-          <span style={{ fontSize: '1.4rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--accent-purple)' }}>
-            {replanCount}
-          </span>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-            ({failureCount} recovered failures)
-          </span>
-        </div>
-        <div style={{ fontSize: '0.75rem', marginTop: '6px', color: 'var(--text-muted)' }}>
-          LLM replanned dynamically
+        <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '8px' }}>
+          Autonomous LLM recovery cycles
         </div>
       </div>
 
       {/* 5. Active Grid Faults */}
-      <div className="glass-panel" style={{ padding: '16px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Active Faults</span>
-          <IconAlertTriangle size={16} color={faultsCount > 0 ? 'var(--accent-amber)' : 'var(--accent-emerald)'} />
+      <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Active Faults
+            </span>
+            <IconAlertTriangle size={16} color={faultsCount > 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)'} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+            <span style={{
+              fontSize: '1.4rem',
+              fontWeight: 700,
+              fontFamily: 'var(--font-mono)',
+              color: faultsCount > 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)'
+            }}>
+              {faultsCount}
+            </span>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>physical disturbances</span>
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-          <span style={{
-            fontSize: '1.4rem',
-            fontWeight: 700,
-            fontFamily: 'var(--font-mono)',
-            color: faultsCount > 0 ? 'var(--accent-amber)' : 'var(--accent-emerald)'
-          }}>
-            {faultsCount}
-          </span>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>in simulator</span>
-        </div>
-        <div style={{ fontSize: '0.75rem', marginTop: '6px', color: faultsCount > 0 ? 'var(--accent-amber)' : 'var(--accent-emerald)', fontWeight: 500 }}>
-          {faultsCount > 0 ? 'Fault isolation active' : 'Grid operating within limits'}
+        <div style={{ fontSize: '0.73rem', color: faultsCount > 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)', fontWeight: 500, marginTop: '8px' }}>
+          {faultsCount > 0 ? 'Fault isolation engaged' : 'Grid nominal within safety bounds'}
         </div>
       </div>
     </div>

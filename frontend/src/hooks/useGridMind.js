@@ -179,7 +179,6 @@ export function useGridMind() {
     setError(null);
     try {
       if (isMockMode) {
-        // Trigger mock failure step
         advanceMockStep(0);
         return;
       }
@@ -187,6 +186,21 @@ export function useGridMind() {
       if (res.grid_state) setGridState(res.grid_state);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateGrid = async (payload) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      if (isMockMode) return; // Manual mode not supported in mock
+      const res = await api.updateGrid(payload);
+      if (res.grid_state) setGridState(res.grid_state);
+    } catch (err) {
+      setError(err.message);
+      throw err; // re-throw so ManualControlPanel can show inline feedback
     } finally {
       setIsLoading(false);
     }
@@ -263,6 +277,7 @@ export function useGridMind() {
     stopMission,
     resetMission,
     injectChaos,
+    updateGrid,
     advanceMockStep,
     resetMock
   };
