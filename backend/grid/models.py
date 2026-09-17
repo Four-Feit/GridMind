@@ -27,6 +27,8 @@ class TransmissionLine(BaseModel):
     load_mw: float = 0.0
     online: bool = True
 
+    model_config = {"populate_by_name": True}
+
 
 class Load(BaseModel):
     id: str
@@ -55,3 +57,5 @@ class GridState(BaseModel):
     loads: List[Load] = Field(default_factory=list)
     battery: Optional[Battery] = None
     failures: List[str] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}
