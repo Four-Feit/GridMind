@@ -283,7 +283,7 @@ class GridMindService:
                 if self.agent.state.mission.status != MissionStatus.RUNNING:
                     break
 
-                completed = self.agent.step()
+                completed = await asyncio.to_thread(self.agent.step)
                 if completed:
                     break
         except asyncio.CancelledError:

@@ -153,8 +153,10 @@ class LiveLLMClient:
         # 1. Native Google Gemini Execution
         if self.is_gemini:
             import httpx
-            # Candidate models to try in case specific pro tier hits 404/429
-            candidate_models = [self.model, "gemini-flash-latest", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
+            # Candidate models to try in case specific tier hits 404/429/503
+            candidate_models = [self.model, "gemini-3.5-flash-lite", "gemini-3.6-flash", "gemini-flash-latest"]
+            # Deduplicate while preserving order
+            candidate_models = list(dict.fromkeys(candidate_models))
             payload = {
                 "contents": [{"parts": [{"text": f"{SYSTEM_PROMPT}\n\n{prompt}"}]}],
                 "generationConfig": {"responseMimeType": "application/json", "temperature": 0.1}

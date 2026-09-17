@@ -82,7 +82,13 @@ export const DashboardPage = ({
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <PowerGridVisualizer gridState={gridState} />
-              <ChaosControlPanel onInjectChaos={injectChaos} isLoading={isLoading} />
+              <ChaosControlPanel
+                onInjectChaos={injectChaos}
+                isLoading={isLoading}
+                onStep={stepMission}
+                onStart={startMission}
+                missionStatus={agentState?.mission?.status}
+              />
             </div>
             <AgentBrainPanel agentState={agentState} events={events} />
           </div>

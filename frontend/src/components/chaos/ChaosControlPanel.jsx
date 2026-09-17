@@ -8,7 +8,7 @@ import {
   IconCheckCircle
 } from '../ui/Icons';
 
-export const ChaosControlPanel = ({ onInjectChaos, isLoading }) => {
+export const ChaosControlPanel = ({ onInjectChaos, isLoading, onStep, onStart, missionStatus }) => {
   const [activeInjecting, setActiveInjecting] = useState(null);
   const [feedback, setFeedback] = useState(null);
 
@@ -65,7 +65,7 @@ export const ChaosControlPanel = ({ onInjectChaos, isLoading }) => {
       setFeedback({ success: false, message: `Failed: ${err.message}` });
     } finally {
       setActiveInjecting(null);
-      setTimeout(() => setFeedback(null), 4000);
+      setTimeout(() => setFeedback(null), 8000);
     }
   };
 
@@ -87,19 +87,71 @@ export const ChaosControlPanel = ({ onInjectChaos, isLoading }) => {
       {/* Feedback Banner */}
       {feedback && (
         <div style={{
-          padding: '8px 12px',
+          padding: '10px 14px',
           borderRadius: 'var(--radius-sm)',
-          marginBottom: '12px',
-          fontSize: '0.8rem',
+          marginBottom: '14px',
+          fontSize: '0.82rem',
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '10px',
           backgroundColor: feedback.success ? 'var(--accent-emerald-dim)' : 'var(--accent-rose-dim)',
           color: feedback.success ? 'var(--accent-emerald)' : 'var(--accent-rose)',
           border: `1px solid ${feedback.success ? 'var(--accent-emerald)' : 'var(--accent-rose)'}`
         }}>
-          {feedback.success ? <IconCheckCircle size={14} /> : <IconAlertTriangle size={14} />}
-          <span>{feedback.message}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {feedback.success ? <IconCheckCircle size={15} /> : <IconAlertTriangle size={15} />}
+            <span>
+              <strong>{feedback.message}</strong>
+              {feedback.success && missionStatus !== 'RUNNING' && (
+                <span style={{ marginLeft: '6px', opacity: 0.9 }}>
+                  — GridMind is currently IDLE. Activate agent to respond:
+                </span>
+              )}
+            </span>
+          </div>
+
+          {feedback.success && missionStatus !== 'RUNNING' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {onStep && (
+                <button
+                  onClick={onStep}
+                  disabled={isLoading}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--accent-emerald)',
+                    color: 'var(--accent-emerald)',
+                    fontWeight: 600,
+                    fontSize: '0.75rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Step Agent Cycle
+                </button>
+              )}
+              {onStart && (
+                <button
+                  onClick={() => onStart()}
+                  disabled={isLoading}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: 'var(--radius-sm)',
+                    backgroundColor: 'var(--accent-emerald)',
+                    border: '1px solid var(--accent-emerald)',
+                    color: '#ffffff',
+                    fontWeight: 600,
+                    fontSize: '0.75rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Start Autonomous Loop
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
