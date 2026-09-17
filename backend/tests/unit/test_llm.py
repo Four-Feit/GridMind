@@ -117,3 +117,15 @@ def test_format_planner_prompt():
     assert "MISSION GOAL: Protect hospital" in prompt
     assert "Total Generation: 180.0 MW" in prompt
     assert "battery_engine" in prompt
+
+
+def test_gemini_client_auto_detection(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "AIzaSyTestFakeKey12345")
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("LLM_MODEL", raising=False)
+
+    client = LiveLLMClient()
+    assert client.api_key == "AIzaSyTestFakeKey12345"
+    assert "generativelanguage.googleapis.com" in client.base_url
+    assert "gemini" in client.model.lower()
+

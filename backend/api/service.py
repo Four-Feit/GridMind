@@ -19,7 +19,7 @@ from backend.core.registry import CapabilityRegistry
 from backend.core.state import MissionStatus
 from backend.grid.models import GridState
 from backend.grid.simulator import GridSimulator
-from backend.llm.client import FakeLLM, OpenAILikeClient
+from backend.llm.client import FakeLLM, LiveLLMClient, OpenAILikeClient
 
 logger = logging.getLogger("gridmind.service")
 
@@ -62,7 +62,11 @@ class GridMindService:
                     self._event_loop
                 )
 
-    def reset_all(self, scripted_responses: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+    def reset_all(
+        self,
+        scripted_responses: Optional[List[Dict[str, Any]]] = None,
+        scenario: str = "baseline"
+    ) -> Dict[str, Any]:
         """Resets the simulator, capabilities, agent, and event bus to initial state."""
         # Cancel any active running task
         if self._running_task and not self._running_task.done():
@@ -70,34 +74,23 @@ class GridMindService:
             self._running_task = None
 
         self.simulator = GridSimulator()
+        if scenario != "baseline":
+            self.simulator.load_scenario(scenario)
+
         self.event_bus = EventBus()
         self.event_bus.subscribe(self._on_event)
 
         self.registry = CapabilityRegistry()
-        self.registry.register(RedistributionEngine())
+        self.registry.register(RedistributionEngine(simulator=self.simulator))
         self.registry.register(PriorityLoadManager(simulator=self.simulator))
-        self.registry.register(BatteryEngine())
+        self.registry.register(BatteryEngine(simulator=self.simulator))
         self.registry.register(GridAnalyzer())
 
-        # Smart LLM client that demonstrates the demo flow and respects memory/failures
-        default_scripted = scripted_responses or [
-            {
-                "action": "redistribution_engine",
-                "arguments": {"target_substation": "S2"},
-                "reason": "Attempting rerouting to restore isolated substation S2."
-            },
-            {
-                "action": "priority_load_manager",
-                "arguments": {"protect_critical": True},
-                "reason": "Redistribution overloaded TL4; shedding non-critical industrial load to guarantee critical facilities."
-            },
-            {
-                "action": "battery_engine",
-                "arguments": {"power_mw": 25, "duration_minutes": 15},
-                "reason": "Deploying energy storage reserve to stabilize grid deficit."
-            }
-        ]
-        self.llm = FakeLLM(scripted_responses=default_scripted)
+        # Live LLM client connects to Gemini/OpenAI if configured, or uses dynamic state-aware fallback
+        if scripted_responses:
+            self.llm = FakeLLM(scripted_responses=scripted_responses)
+        else:
+            self.llm = LiveLLMClient()
 
         self.planner = Planner(self.llm, self.event_bus)
         self.agent = AgentController(
@@ -257,6 +250,15 @@ class GridMindService:
             "mission_status": self.agent.state.mission.status.value
         }
 
+    def list_scenarios(self) -> List[Dict[str, str]]:
+        """Returns all pre-packaged grid scenarios from Om's P2 simulator."""
+        return self.simulator.list_scenarios()
+
+    def load_scenario(self, scenario_id: str) -> Dict[str, Any]:
+        """Loads a specific scenario and synchronizes capabilities and agent."""
+        return self.reset_all(scenario=scenario_id)
+
 
 # Singleton service instance
 service = GridMindService()
+

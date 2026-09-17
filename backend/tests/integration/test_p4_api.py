@@ -160,3 +160,32 @@ def test_websocket_telemetry_stream():
         pong = ws.receive_json()
         assert pong["type"] == "PONG"
         assert pong["timestamp"] == 12345
+
+
+def test_list_and_load_scenarios():
+    client = TestClient(app)
+    # 1. List scenarios
+    res = client.get("/scenarios")
+    assert res.status_code == 200
+    scenarios = res.json()["scenarios"]
+    assert len(scenarios) >= 5
+    ids = [s["id"] for s in scenarios]
+    assert "baseline" in ids
+    assert "cascade_failure" in ids
+    assert "heatwave_stress" in ids
+
+    # 2. Load cascade failure scenario
+    load_res = client.post("/scenarios/load", json={"scenario_id": "cascade_failure"})
+    assert load_res.status_code == 200
+    grid = load_res.json()["grid"]
+    s2 = next(s for s in grid["substations"] if s["id"] == "S2")
+    assert s2["online"] is False
+    hospital = next(l for l in grid["loads"] if l["id"] == "HOSPITAL")
+    assert hospital["connected"] is False
+
+    # 3. Reset back to baseline
+    reset_res = client.post("/scenarios/load", json={"scenario_id": "baseline"})
+    assert reset_res.status_code == 200
+    baseline_grid = reset_res.json()["grid"]
+    assert next(s for s in baseline_grid["substations"] if s["id"] == "S2")["online"] is True
+

@@ -108,14 +108,39 @@ class LiveLLMClient:
         model: Optional[str] = None,
         base_url: Optional[str] = None
     ):
-        self.api_key = api_key or os.getenv("LLM_API_KEY", "")
-        self.model = model or os.getenv("LLM_MODEL", "gpt-4o-mini")
-        self.base_url = base_url or os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")
+        raw_key = (
+            api_key
+            or os.getenv("GEMINI_API_KEY")
+            or os.getenv("LLM_API_KEY")
+            or os.getenv("OPENAI_API_KEY", "")
+        )
+        self.api_key = raw_key.strip() if raw_key else ""
+
+        # Default model selection
+        raw_model = model or os.getenv("LLM_MODEL", "")
+        if not raw_model:
+            if os.getenv("GEMINI_API_KEY") or self.api_key.startswith("AIzaSy"):
+                raw_model = "gemini-1.5-pro"
+            else:
+                raw_model = "gpt-4o-mini"
+        self.model = raw_model
+
+        # Provider auto-detection for base_url
+        explicit_base = base_url or os.getenv("LLM_BASE_URL", "")
+        if explicit_base:
+            self.base_url = explicit_base
+        elif "gemini" in self.model.lower() or self.api_key.startswith("AIzaSy") or os.getenv("GEMINI_API_KEY"):
+            self.base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
+        elif "groq" in self.model.lower() or os.getenv("GROQ_API_KEY"):
+            self.base_url = "https://api.groq.com/openai/v1"
+        else:
+            self.base_url = "https://api.openai.com/v1"
+
         self._fallback = FakeLLM()
 
     def generate_decision(self, context: Dict[str, Any]) -> Dict[str, Any]:
         if not self.api_key:
-            logger.info("No LLM_API_KEY provided; using deterministic FakeLLM.")
+            logger.info("No LLM_API_KEY/GEMINI_API_KEY provided; using dynamic FakeLLM.")
             return self._fallback.generate_decision(context)
 
         prompt = format_planner_prompt(context)
@@ -131,7 +156,7 @@ class LiveLLMClient:
 
         try:
             import httpx
-            with httpx.Client(timeout=15.0) as client:
+            with httpx.Client(timeout=20.0) as client:
                 response = client.post(
                     f"{self.base_url.rstrip('/')}/chat/completions",
                     headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
@@ -143,7 +168,7 @@ class LiveLLMClient:
                 decision = parse_llm_decision(raw_text)
                 return decision.model_dump()
         except Exception as e:
-            logger.warning(f"Live LLM API call failed ({e}); falling back to FakeLLM.")
+            logger.warning(f"Live LLM API call to {self.base_url} ({self.model}) failed ({e}); falling back to dynamic reasoning.")
             return self._fallback.generate_decision(context)
 
 

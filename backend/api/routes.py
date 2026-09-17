@@ -112,3 +112,28 @@ def get_capabilities():
         return {"status": "ok", "capabilities": caps}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve capabilities: {str(e)}")
+
+
+class ScenarioLoadRequest(BaseModel):
+    scenario_id: str = Field(..., description="Scenario identifier (e.g., baseline, heatwave_stress, islanded_grid, cascade_failure, renewable_dusk)")
+
+
+@router.get("/scenarios")
+def list_scenarios():
+    """Returns available pre-packaged grid scenarios from Om's P2 simulator."""
+    try:
+        scenarios = service.list_scenarios()
+        return {"status": "ok", "scenarios": scenarios}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list scenarios: {str(e)}")
+
+
+@router.post("/scenarios/load")
+def load_scenario(req: ScenarioLoadRequest):
+    """Loads a pre-packaged grid scenario and resets the agent to that world."""
+    try:
+        result = service.load_scenario(req.scenario_id)
+        return {"status": "ok", **result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load scenario '{req.scenario_id}': {str(e)}")
+
