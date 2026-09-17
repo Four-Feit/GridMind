@@ -114,23 +114,28 @@ class LiveLLMClient:
             or os.getenv("LLM_API_KEY")
             or os.getenv("OPENAI_API_KEY", "")
         )
-        self.api_key = raw_key.strip() if raw_key else ""
+        self.api_key = raw_key.strip().strip('"').strip("'") if raw_key else ""
+
+        # Check if provider is Gemini
+        self.is_gemini = bool(
+            os.getenv("GEMINI_API_KEY")
+            or self.api_key.startswith("AQ.")
+            or self.api_key.startswith("AIzaSy")
+            or "gemini" in (model or os.getenv("LLM_MODEL", "")).lower()
+        )
 
         # Default model selection
         raw_model = model or os.getenv("LLM_MODEL", "")
         if not raw_model:
-            if os.getenv("GEMINI_API_KEY") or self.api_key.startswith("AIzaSy"):
-                raw_model = "gemini-1.5-pro"
-            else:
-                raw_model = "gpt-4o-mini"
+            raw_model = "gemini-flash-latest" if self.is_gemini else "gpt-4o-mini"
         self.model = raw_model
 
         # Provider auto-detection for base_url
         explicit_base = base_url or os.getenv("LLM_BASE_URL", "")
         if explicit_base:
             self.base_url = explicit_base
-        elif "gemini" in self.model.lower() or self.api_key.startswith("AIzaSy") or os.getenv("GEMINI_API_KEY"):
-            self.base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
+        elif self.is_gemini:
+            self.base_url = "https://generativelanguage.googleapis.com/v1beta"
         elif "groq" in self.model.lower() or os.getenv("GROQ_API_KEY"):
             self.base_url = "https://api.groq.com/openai/v1"
         else:
@@ -144,6 +149,37 @@ class LiveLLMClient:
             return self._fallback.generate_decision(context)
 
         prompt = format_planner_prompt(context)
+
+        # 1. Native Google Gemini Execution
+        if self.is_gemini:
+            import httpx
+            # Candidate models to try in case specific pro tier hits 404/429
+            candidate_models = [self.model, "gemini-flash-latest", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
+            payload = {
+                "contents": [{"parts": [{"text": f"{SYSTEM_PROMPT}\n\n{prompt}"}]}],
+                "generationConfig": {"responseMimeType": "application/json", "temperature": 0.1}
+            }
+
+            for model_name in candidate_models:
+                url = f"{self.base_url.rstrip('/')}/models/{model_name}:generateContent?key={self.api_key}"
+                try:
+                    with httpx.Client(timeout=15.0) as client:
+                        res = client.post(url, json=payload)
+                        if res.status_code == 200:
+                            data = res.json()
+                            raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
+                            decision = parse_llm_decision(raw_text)
+                            logger.info(f"Generated live decision via Gemini ({model_name}): {decision.action}")
+                            return decision.model_dump()
+                        else:
+                            logger.warning(f"Gemini {model_name} returned {res.status_code}: {res.text[:120]}")
+                except Exception as e:
+                    logger.warning(f"Gemini {model_name} request failed ({e})")
+
+            logger.warning("All Gemini model attempts failed; falling back to dynamic reasoning.")
+            return self._fallback.generate_decision(context)
+
+        # 2. Standard OpenAI / Groq Chat Completions Execution
         payload = {
             "model": self.model,
             "messages": [
