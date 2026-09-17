@@ -145,3 +145,8 @@ class LiveLLMClient:
         except Exception as e:
             logger.warning(f"Live LLM API call failed ({e}); falling back to FakeLLM.")
             return self._fallback.generate_decision(context)
+
+
+# Backward-compatibility alias for P4
+OpenAILikeClient = LiveLLMClient
+
