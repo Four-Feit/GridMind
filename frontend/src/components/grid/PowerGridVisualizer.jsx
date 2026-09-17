@@ -54,7 +54,8 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
   const factory = loads.find((l) => l.id === 'FACTORY') || { id: 'FACTORY', demand_mw: 40, supplied_mw: 40, connected: true, priority: 'normal' };
 
   // Hospital outage check (cause -> effect connection)
-  const isHospitalDistressed = !hospital.connected || hospital.supplied_mw < hospital.demand_mw || !s2.online;
+  const isHospitalDistressed = !hospital.connected || (hospital.supplied_mw || 0) < (hospital.demand_mw || 30) || !s2.online || !tl4.online;
+
 
   // Active inspected entity
   const inspectedId = selectedNodeId || hoveredNodeId;
@@ -312,7 +313,7 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
                 overloaded: isTl4Overloaded,
                 color: isTl4Overloaded ? 'var(--accent-amber)' : (s2.online && tl4.online ? 'var(--accent-cyan)' : 'var(--accent-rose)'),
                 active: isLineActiveForInspection('TL4'),
-                label: `TL4: ${tl4.load_mw}/${tl4.capacity_mw}MW${isTl4Overloaded ? ' ⚠' : ''}`,
+                label: !tl4.online ? 'TL4: TRIPPED (0MW)' : `TL4: ${tl4.load_mw}/${tl4.capacity_mw}MW${isTl4Overloaded ? ' ⚠' : ''}`,
                 labelX: 552,
                 labelY: 235,
               },
@@ -328,34 +329,35 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
               {
                 id: 'S3-HOSPITAL',
                 d: 'M 705 230 C 745 230, 745 100, 785 100',
-                online: hospital.connected && s3.online && s2.online,
-                color: hospital.connected && !isHospitalDistressed ? 'var(--accent-emerald)' : 'var(--accent-rose)',
+                online: hospital.connected && s3.online && s2.online && tl4.online,
+                color: hospital.connected && !isHospitalDistressed && tl4.online ? 'var(--accent-emerald)' : 'var(--accent-rose)',
                 active: isLineActiveForInspection('S3-HOSPITAL'),
               },
               // S3 -> Water Plant
               {
                 id: 'S3-WATER',
                 d: 'M 705 240 C 745 240, 745 195, 785 195',
-                online: waterPlant.connected && s3.online,
-                color: waterPlant.connected ? 'var(--accent-emerald)' : 'var(--accent-rose)',
+                online: waterPlant.connected && s3.online && tl4.online,
+                color: waterPlant.connected && tl4.online ? 'var(--accent-emerald)' : 'var(--accent-rose)',
                 active: isLineActiveForInspection('S3-WATER'),
               },
               // S3 -> Residential
               {
                 id: 'S3-RESIDENTIAL',
                 d: 'M 705 250 C 745 250, 745 290, 785 290',
-                online: residential.connected && s3.online,
-                color: residential.connected ? 'var(--accent-cyan)' : 'var(--accent-rose)',
+                online: residential.connected && s3.online && tl4.online,
+                color: residential.connected && tl4.online ? 'var(--accent-cyan)' : 'var(--accent-rose)',
                 active: isLineActiveForInspection('S3-RESIDENTIAL'),
               },
               // S3 -> Factory (Load Shed Target)
               {
                 id: 'S3-FACTORY',
                 d: 'M 705 260 C 745 260, 745 385, 785 385',
-                online: factory.connected && s3.online,
-                color: factory.connected ? 'var(--accent-cyan)' : 'var(--accent-amber)',
+                online: factory.connected && s3.online && tl4.online,
+                color: factory.connected && tl4.online ? 'var(--accent-cyan)' : 'var(--accent-amber)',
                 active: isLineActiveForInspection('S3-FACTORY'),
               },
+
             ];
 
             return linesData.map((l) => {
@@ -574,6 +576,7 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
           {(() => {
             const isHovered = hoveredNodeId === 'S3';
             const isSelected = selectedNodeId === 'S3';
+            const isS3Powered = s3.online && tl4.online;
             return (
               <g
                 transform="translate(585, 205)"
@@ -585,15 +588,15 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
                 <rect
                   width="120" height="80" rx="8"
                   fill="var(--bg-card)"
-                  stroke={isSelected ? 'var(--accent-cyan)' : (isHovered ? 'var(--accent-cyan)' : 'var(--border-card)')}
-                  strokeWidth={isSelected ? '2.5' : '1.5'}
+                  stroke={!isS3Powered ? 'var(--accent-rose)' : (isSelected ? 'var(--accent-cyan)' : (isHovered ? 'var(--accent-cyan)' : 'var(--border-card)'))}
+                  strokeWidth={isSelected || !isS3Powered ? '2.5' : '1.5'}
                   filter={isHovered || isSelected ? 'drop-shadow(0 4px 10px rgba(2,132,199,0.2))' : 'none'}
                 />
-                <circle cx="16" cy="18" r="5" fill="var(--accent-emerald)" />
+                <circle cx="16" cy="18" r="5" fill={isS3Powered ? 'var(--accent-emerald)' : 'var(--accent-rose)'} />
                 <text x="28" y="21" fill="var(--text-primary)" fontSize="12" fontWeight="700">Substation S3</text>
                 <text x="14" y="42" fill="var(--text-muted)" fontSize="9.5">Distribution Bus</text>
-                <text x="14" y="64" fill="var(--accent-cyan)" fontSize="10.5" fontFamily="var(--font-mono)" fontWeight="600">
-                  4 Feeder Lines
+                <text x="14" y="64" fill={isS3Powered ? 'var(--accent-cyan)' : 'var(--accent-rose)'} fontSize="10.5" fontFamily="var(--font-mono)" fontWeight="600">
+                  {isS3Powered ? '4 Feeder Lines' : 'TL4 FEED CUT'}
                 </text>
               </g>
             );

@@ -149,7 +149,13 @@ class GridMindService:
             for tl in self.simulator.transmission_lines:
                 if tl.id == target:
                     tl.online = False
+                    tl.load_mw = 0.0
                     self.simulator.failures.append(f"Transmission Line {target} tripped")
+            # If TL4 is tripped, downstream loads on S3 are severed from main generation
+            if target == "TL4":
+                for l in self.simulator.loads:
+                    l.supplied_mw = 0.0
+                    l.connected = False
             msg = f"Chaos Injected: Transmission line {target} tripped offline."
         else:
             self.simulator.failures.append(f"Chaos event: {event_type} on {target}")

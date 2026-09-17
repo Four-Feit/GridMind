@@ -187,7 +187,7 @@ class GridSimulator:
             else:
                 message = f"Substation {target} not found"
 
-        elif event_type_str in (ChaosEventType.TRANSMISSION_FAILURE, "TRANSMISSION_FAILURE", "TRANSMISSION_LINE", "TRANSMISSION", "LINE"):
+        elif event_type_str in (ChaosEventType.TRANSMISSION_FAILURE, "TRANSMISSION_FAILURE", "TRANSMISSION_LINE", "TRANSMISSION", "LINE", "LINE_TRIP"):
             matched = False
             for line in self.transmission_lines:
                 if line.id == target:
@@ -198,6 +198,11 @@ class GridSimulator:
                 msg = f"Transmission line {target} tripped"
                 if msg not in self.failures:
                     self.failures.append(msg)
+                # If TL4 is severed, downstream loads connected via S3 lose incoming power
+                if target == "TL4":
+                    for l in self.loads:
+                        l.supplied_mw = 0.0
+                        l.connected = False
                 message = f"Transmission line {target} tripped offline"
             else:
                 message = f"Transmission line {target} not found"
