@@ -91,39 +91,47 @@ export const MetricsGrid = ({ gridState, events = [], updateGrid }) => {
       <div
         className="glass-panel"
         style={{
-          padding: '16px 20px',
+          padding: '18px 22px',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
-          border: isEditing ? '1px solid var(--accent-cyan)' : '1px solid var(--border-card)',
+          borderRadius: 'var(--radius-md)',
+          backgroundColor: 'var(--bg-secondary)',
+          border: isEditing ? '1px solid var(--text-primary)' : '1px solid var(--border-card)',
           transition: 'border-color var(--transition-fast)',
+          boxShadow: 'var(--shadow-sm)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <IconZap size={15} color={balance >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)'} />
-            <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%',
+              backgroundColor: balance >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)',
+              boxShadow: balance >= 0 ? '0 0 8px var(--accent-emerald)' : '0 0 8px var(--accent-rose)',
+            }} />
+            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
               Power Balance
             </span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             {isSyncing && (
-              <span style={{ fontSize: '0.67rem', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+              <span style={{ fontSize: '0.67rem', color: 'var(--brand-mind)', fontFamily: 'var(--font-mono)' }}>
                 syncing...
               </span>
             )}
             <button
               onClick={() => setIsEditing((v) => !v)}
               style={{
-                fontSize: '0.69rem',
-                fontWeight: 600,
-                color: isEditing ? 'var(--accent-cyan)' : 'var(--text-muted)',
-                padding: '2px 7px',
-                borderRadius: 'var(--radius-xs)',
-                backgroundColor: isEditing ? 'var(--accent-cyan-dim)' : 'var(--bg-tertiary)',
-                border: '1px solid var(--border-subtle)',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                color: isEditing ? '#ffffff' : 'var(--text-secondary)',
+                padding: '3px 10px',
+                borderRadius: 'var(--radius-full)',
+                backgroundColor: isEditing ? 'var(--text-primary)' : 'rgba(236, 229, 216, 0.7)',
+                border: '1px solid var(--border-card)',
                 cursor: 'pointer',
+                transition: 'all var(--transition-fast)',
               }}
             >
               {isEditing ? 'Done' : 'Adjust Sliders'}
@@ -211,105 +219,161 @@ export const MetricsGrid = ({ gridState, events = [], updateGrid }) => {
       </div>
 
       {/* 2. Critical Facilities Coverage */}
-      <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+      <div className="glass-panel" style={{
+        padding: '18px 22px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        borderRadius: 'var(--radius-md)',
+        backgroundColor: 'var(--bg-secondary)',
+        border: '1px solid var(--border-card)',
+        boxShadow: 'var(--shadow-sm)',
+      }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
               Critical Facilities
             </span>
-            <IconShield size={16} color={criticalHealthPct === 100 ? 'var(--accent-emerald)' : 'var(--accent-rose)'} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
             <span style={{
-              fontSize: '1.4rem',
-              fontWeight: 700,
+              width: 8, height: 8, borderRadius: '50%',
+              backgroundColor: criticalHealthPct === 100 ? 'var(--accent-emerald)' : 'var(--accent-rose)',
+              boxShadow: criticalHealthPct === 100 ? '0 0 8px var(--accent-emerald)' : '0 0 8px var(--accent-rose)',
+            }} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{
+              fontSize: '1.5rem',
+              fontWeight: 800,
               fontFamily: 'var(--font-mono)',
+              letterSpacing: '-0.02em',
               color: criticalHealthPct === 100 ? 'var(--accent-emerald)' : 'var(--accent-rose)'
             }}>
               {criticalHealthPct}%
             </span>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600 }}>
               ({criticalPowered.length}/{criticalLoads.length} secured)
             </span>
           </div>
         </div>
-        <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '8px' }}>
-          {criticalHealthPct === 100 ? 'Hospital & municipal supply nominal' : 'Critical load deficit detected!'}
+        <div style={{
+          fontSize: '0.73rem',
+          color: criticalHealthPct === 100 ? 'var(--accent-emerald)' : 'var(--accent-rose)',
+          fontWeight: 600,
+          marginTop: '8px'
+        }}>
+          {criticalHealthPct === 100 ? '● Hospital & water plant nominal' : '▲ Critical deficit detected!'}
         </div>
       </div>
 
       {/* 3. Battery Storage */}
-      <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+      <div className="glass-panel" style={{
+        padding: '18px 22px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        borderRadius: 'var(--radius-md)',
+        backgroundColor: 'var(--bg-secondary)',
+        border: '1px solid var(--border-card)',
+        boxShadow: 'var(--shadow-sm)',
+      }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
               B1 Storage Reserve
             </span>
-            <IconBattery size={16} color="var(--accent-purple)" />
+            <IconBattery size={16} color="var(--brand-mind)" />
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-            <span style={{ fontSize: '1.4rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{ fontSize: '1.5rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
               {battery.remaining_mwh}
             </span>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>/ {battery.capacity_mwh} MWh</span>
+            <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600 }}>/ {battery.capacity_mwh} MWh</span>
           </div>
         </div>
         <div>
-          <div style={{ width: '100%', height: '4px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '2px', overflow: 'hidden' }}>
-            <div style={{ width: `${batteryPct}%`, height: '100%', backgroundColor: 'var(--accent-purple)', transition: 'width 0.4s ease' }} />
+          <div style={{ width: '100%', height: '5px', backgroundColor: 'var(--bg-tertiary)', borderRadius: '9999px', overflow: 'hidden' }}>
+            <div style={{ width: `${batteryPct}%`, height: '100%', backgroundColor: 'var(--brand-mind)', transition: 'width 0.4s ease' }} />
           </div>
-          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '6px', fontWeight: 600 }}>
             {batteryPct}% capacity available
           </div>
         </div>
       </div>
 
       {/* 4. Autonomous Replans */}
-      <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+      <div className="glass-panel" style={{
+        padding: '18px 22px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        borderRadius: 'var(--radius-md)',
+        backgroundColor: 'var(--bg-secondary)',
+        border: '1px solid var(--border-card)',
+        boxShadow: 'var(--shadow-sm)',
+      }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
               Dynamic Replans
             </span>
-            <IconRotateCcw size={16} color="var(--accent-cyan)" />
+            <IconRotateCcw size={16} color="var(--brand-mind)" />
           </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-            <span style={{ fontSize: '1.4rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{ fontSize: '1.5rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
               {replanCount}
             </span>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              ({failureCount} failures handled)
+            <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+              ({failureCount} handled)
             </span>
           </div>
         </div>
-        <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '8px' }}>
-          Autonomous LLM recovery cycles
+        <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginTop: '8px', fontWeight: 500 }}>
+          Autonomous LLM reasoning cycles
         </div>
       </div>
 
       {/* 5. Active Grid Faults */}
-      <div className="glass-panel" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+      <div className="glass-panel" style={{
+        padding: '18px 22px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        borderRadius: 'var(--radius-md)',
+        backgroundColor: 'var(--bg-secondary)',
+        border: '1px solid var(--border-card)',
+        boxShadow: 'var(--shadow-sm)',
+      }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ fontSize: '0.74rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <span style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
               Active Faults
             </span>
-            <IconAlertTriangle size={16} color={faultsCount > 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)'} />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
             <span style={{
-              fontSize: '1.4rem',
-              fontWeight: 700,
+              width: 8, height: 8, borderRadius: '50%',
+              backgroundColor: faultsCount > 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)',
+              boxShadow: faultsCount > 0 ? '0 0 8px var(--accent-rose)' : '0 0 8px var(--accent-emerald)',
+            }} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{
+              fontSize: '1.5rem',
+              fontWeight: 800,
               fontFamily: 'var(--font-mono)',
+              letterSpacing: '-0.02em',
               color: faultsCount > 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)'
             }}>
               {faultsCount}
             </span>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>physical disturbances</span>
+            <span style={{ fontSize: '0.76rem', color: 'var(--text-muted)', fontWeight: 600 }}>disturbances</span>
           </div>
         </div>
-        <div style={{ fontSize: '0.73rem', color: faultsCount > 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)', fontWeight: 500, marginTop: '8px' }}>
-          {faultsCount > 0 ? 'Fault isolation engaged' : 'Grid nominal within safety bounds'}
+        <div style={{
+          fontSize: '0.73rem',
+          color: faultsCount > 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)',
+          fontWeight: 600,
+          marginTop: '8px'
+        }}>
+          {faultsCount > 0 ? '▲ Fault isolation engaged' : '● Grid nominal within safety bounds'}
         </div>
       </div>
     </div>

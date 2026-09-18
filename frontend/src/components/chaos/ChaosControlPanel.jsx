@@ -20,8 +20,7 @@ export const ChaosControlPanel = ({ onInjectChaos, isLoading, onStep, onStart, m
       type: 'SUBSTATION_FAILURE',
       target: 'S2',
       params: {},
-      accent: 'var(--accent-rose)',
-      icon: <IconCpu size={16} />
+      icon: <IconCpu size={15} />
     },
     {
       id: 'weather_solar',
@@ -30,8 +29,7 @@ export const ChaosControlPanel = ({ onInjectChaos, isLoading, onStep, onStart, m
       type: 'WEATHER_DETERIORATION',
       target: 'G2_SOLAR',
       params: { drop_mw: 30 },
-      accent: 'var(--accent-amber)',
-      icon: <IconSun size={16} />
+      icon: <IconSun size={15} />
     },
     {
       id: 'demand_spike',
@@ -40,8 +38,7 @@ export const ChaosControlPanel = ({ onInjectChaos, isLoading, onStep, onStart, m
       type: 'DEMAND_SPIKE',
       target: 'RESIDENTIAL_ZONE',
       params: { spike_mw: 25 },
-      accent: 'var(--accent-cyan)',
-      icon: <IconZap size={16} />
+      icon: <IconZap size={15} />
     },
     {
       id: 'line_overload',
@@ -50,8 +47,7 @@ export const ChaosControlPanel = ({ onInjectChaos, isLoading, onStep, onStart, m
       type: 'LINE_TRIP',
       target: 'TL4',
       params: {},
-      accent: 'var(--accent-purple)',
-      icon: <IconAlertTriangle size={16} />
+      icon: <IconAlertTriangle size={15} />
     }
   ];
 
@@ -70,17 +66,58 @@ export const ChaosControlPanel = ({ onInjectChaos, isLoading, onStep, onStart, m
   };
 
   return (
-    <div className="glass-panel" style={{ padding: '20px 24px', marginBottom: '24px' }}>
+    <div
+      style={{
+        backgroundColor: 'var(--bg-secondary)',
+        borderRadius: '16px',
+        border: '1px solid var(--border-card)',
+        padding: '22px 24px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.03)',
+        height: '100%',
+        boxSizing: 'border-box'
+      }}
+    >
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <IconFlame size={18} color="var(--accent-rose)" />
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-            Chaos Engineering Injection Zone
-          </h3>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div
+            style={{
+              width: '30px',
+              height: '30px',
+              borderRadius: '8px',
+              backgroundColor: 'var(--accent-rose-dim)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <IconFlame size={16} color="var(--accent-rose)" />
+          </div>
+          <div>
+            <h3 style={{ fontSize: '0.96rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.01em' }}>
+              Chaos Engineering
+            </h3>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+              Simulate grid disturbances & observe LLM recovery
+            </span>
+          </div>
         </div>
-        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-          Tests LLM failure recovery & replanning capabilities
+        <span
+          style={{
+            fontSize: '0.68rem',
+            fontWeight: 700,
+            padding: '3px 8px',
+            borderRadius: 'var(--radius-full)',
+            backgroundColor: 'var(--accent-rose-dim)',
+            color: 'var(--accent-rose)',
+            border: '1px solid var(--accent-rose)',
+            fontFamily: 'var(--font-mono)'
+          }}
+        >
+          FAULT INJECTION
         </span>
       </div>
 
@@ -88,9 +125,8 @@ export const ChaosControlPanel = ({ onInjectChaos, isLoading, onStep, onStart, m
       {feedback && (
         <div style={{
           padding: '10px 14px',
-          borderRadius: 'var(--radius-sm)',
-          marginBottom: '14px',
-          fontSize: '0.82rem',
+          borderRadius: '10px',
+          fontSize: '0.8rem',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -106,7 +142,7 @@ export const ChaosControlPanel = ({ onInjectChaos, isLoading, onStep, onStart, m
               <strong>{feedback.message}</strong>
               {feedback.success && missionStatus !== 'RUNNING' && (
                 <span style={{ marginLeft: '6px', opacity: 0.9 }}>
-                  — GridMind is currently IDLE. Activate agent to respond:
+                  — GridMind is IDLE. Trigger agent cycle:
                 </span>
               )}
             </span>
@@ -120,16 +156,16 @@ export const ChaosControlPanel = ({ onInjectChaos, isLoading, onStep, onStart, m
                   disabled={isLoading}
                   style={{
                     padding: '4px 10px',
-                    borderRadius: 'var(--radius-sm)',
-                    backgroundColor: 'var(--bg-card)',
+                    borderRadius: 'var(--radius-full)',
+                    backgroundColor: 'var(--bg-primary)',
                     border: '1px solid var(--accent-emerald)',
                     color: 'var(--accent-emerald)',
-                    fontWeight: 600,
-                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    fontSize: '0.72rem',
                     cursor: 'pointer'
                   }}
                 >
-                  Step Agent Cycle
+                  Step Cycle
                 </button>
               )}
               {onStart && (
@@ -137,17 +173,17 @@ export const ChaosControlPanel = ({ onInjectChaos, isLoading, onStep, onStart, m
                   onClick={() => onStart()}
                   disabled={isLoading}
                   style={{
-                    padding: '4px 10px',
-                    borderRadius: 'var(--radius-sm)',
-                    backgroundColor: 'var(--accent-emerald)',
-                    border: '1px solid var(--accent-emerald)',
+                    padding: '4px 12px',
+                    borderRadius: 'var(--radius-full)',
+                    backgroundColor: 'var(--text-primary)',
+                    border: 'none',
                     color: '#ffffff',
-                    fontWeight: 600,
-                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    fontSize: '0.72rem',
                     cursor: 'pointer'
                   }}
                 >
-                  Start Autonomous Loop
+                  Start Loop
                 </button>
               )}
             </div>
@@ -158,7 +194,7 @@ export const ChaosControlPanel = ({ onInjectChaos, isLoading, onStep, onStart, m
       {/* Chaos Buttons Grid */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
         gap: '12px'
       }}>
         {chaosPresets.map((preset) => {
@@ -167,24 +203,25 @@ export const ChaosControlPanel = ({ onInjectChaos, isLoading, onStep, onStart, m
             <div
               key={preset.id}
               style={{
-                padding: '14px',
-                borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'var(--bg-secondary)',
-                border: '1px solid var(--border-color)',
+                padding: '14px 16px',
+                borderRadius: '12px',
+                backgroundColor: 'var(--bg-primary)',
+                border: '1px solid var(--border-card)',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                gap: '10px'
+                gap: '12px',
+                transition: 'border-color var(--transition-fast)'
               }}
             >
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                  <span style={{ color: preset.accent }}>{preset.icon}</span>
-                  <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                  <span style={{ color: 'var(--text-primary)' }}>{preset.icon}</span>
+                  <span style={{ fontWeight: 800, fontSize: '0.84rem', color: 'var(--text-primary)' }}>
                     {preset.title}
                   </span>
                 </div>
-                <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                <p style={{ fontSize: '0.73rem', color: 'var(--text-secondary)', lineHeight: 1.4, margin: 0 }}>
                   {preset.desc}
                 </p>
               </div>
@@ -193,13 +230,13 @@ export const ChaosControlPanel = ({ onInjectChaos, isLoading, onStep, onStart, m
                 onClick={() => handleTrigger(preset)}
                 disabled={isBusy}
                 style={{
-                  padding: '7px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--bg-tertiary)',
-                  border: `1px solid ${preset.accent}`,
-                  color: preset.accent,
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
+                  padding: '7px 14px',
+                  backgroundColor: 'transparent',
+                  border: '1px solid var(--accent-rose)',
+                  color: 'var(--accent-rose)',
+                  borderRadius: 'var(--radius-full)',
+                  fontSize: '0.73rem',
+                  fontWeight: 700,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -209,7 +246,7 @@ export const ChaosControlPanel = ({ onInjectChaos, isLoading, onStep, onStart, m
                   transition: 'all var(--transition-fast)'
                 }}
               >
-                <IconFlame size={13} color={preset.accent} />
+                <IconFlame size={12} color="var(--accent-rose)" />
                 <span>{activeInjecting === preset.id ? 'Injecting...' : 'Inject Fault'}</span>
               </button>
             </div>

@@ -1,67 +1,76 @@
-/* GridMind Design System — Light Theme (Single Source of Truth) */
+/* GridMind Design System — Warm Editorial Theme (Inspired by Cowboy Minimalist Industrial Aesthetic) */
 
 :root {
-  /* Light Theme Palette (Default — only theme) */
-  --bg-primary: #f8fafc;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #f1f5f9;
-  --bg-card: rgba(255, 255, 255, 0.92);
-  --bg-card-hover: #ffffff;
-  --bg-glass: rgba(248, 250, 252, 0.88);
-  --bg-overlay: rgba(15, 23, 42, 0.55);
+  /* Warm Editorial Canvas & Paper Surfaces */
+  --bg-primary: #F5F1E9;          /* Main warm ivory canvas */
+  --bg-secondary: #FCFAF6;        /* Warm porcelain card / surface */
+  --bg-tertiary: #ECE5D8;         /* Warm sand accent / chip fill */
+  --bg-card: rgba(252, 250, 246, 0.96);
+  --bg-card-hover: #FFFFFF;
+  --bg-glass: rgba(245, 241, 233, 0.92);
+  --bg-overlay: rgba(24, 24, 24, 0.55);
 
-  --border-color: rgba(0, 0, 0, 0.08);
-  --border-subtle: rgba(0, 0, 0, 0.04);
-  --border-focus: rgba(2, 132, 199, 0.55);
-  --border-card: #e2e8f0;
+  /* Hairline Borders & Dividers */
+  --border-color: rgba(24, 24, 24, 0.08);
+  --border-subtle: rgba(24, 24, 24, 0.05);
+  --border-focus: rgba(24, 24, 24, 0.35);
+  --border-card: #E2DBD0;
 
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #94a3b8;
-  --text-inverse: #f8fafc;
+  /* Typography Colors */
+  --text-primary: #181818;        /* Bold headlines, crisp obsidian */
+  --text-secondary: #4A4742;      /* Warm charcoal body */
+  --text-muted: #757068;          /* Warm stone labels and metadata */
+  --text-inverse: #FCFAF6;        /* Inverse white for dark pills */
 
-  /* Semantic Accents */
-  --accent-cyan: #0284c7;
-  --accent-cyan-dim: rgba(2, 132, 199, 0.1);
-  --accent-blue: #3b82f6;
-  --accent-purple: #7c3aed;
-  --accent-purple-dim: rgba(124, 58, 237, 0.1);
-  --accent-amber: #d97706;
-  --accent-amber-dim: rgba(217, 119, 6, 0.1);
-  --accent-emerald: #059669;
-  --accent-emerald-dim: rgba(5, 150, 105, 0.1);
-  --accent-rose: #e11d48;
-  --accent-rose-dim: rgba(225, 29, 72, 0.1);
+  /* Distinct Brand Colors */
+  --brand-grid: #181818;
+  --brand-mind: #16a34a;          /* Clean energy emerald green for "Mind" */
+  --brand-mind-dim: rgba(22, 163, 74, 0.12);
+
+  /* Semantic Accents & Unambiguous Red/Green Signals */
+  --accent-cyan: #0f766e;         /* Deep petroleum / teal technical accent */
+  --accent-cyan-dim: rgba(15, 118, 110, 0.1);
+  --accent-blue: #2563eb;
+  --accent-purple: #6d28d9;
+  --accent-purple-dim: rgba(109, 40, 217, 0.1);
+
+  /* CRITICAL SIGNAL TOKENS: Pure High-Visibility Green, Red, Amber */
+  --accent-emerald: #16a34a;      /* Clear Green: healthy, powered, connected, passed */
+  --accent-emerald-dim: rgba(22, 163, 74, 0.12);
+  --accent-rose: #dc2626;         /* Clear Red: fault, outage, tripped, failed */
+  --accent-rose-dim: rgba(220, 38, 38, 0.12);
+  --accent-amber: #d97706;        /* Clear Amber: warning, overloaded, paused */
+  --accent-amber-dim: rgba(217, 119, 6, 0.12);
 
   /* Status Tokens */
-  --status-idle: #94a3b8;
-  --status-running: #0284c7;
-  --status-success: #059669;
-  --status-warning: #d97706;
-  --status-danger: #e11d48;
+  --status-idle: #757068;
+  --status-running: #16a34a;      /* Running is healthy green */
+  --status-success: #16a34a;      /* Success is green */
+  --status-warning: #d97706;      /* Warning is amber */
+  --status-danger: #dc2626;       /* Danger / fault is red */
 
   /* Typography */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, Consolas, monospace;
 
   /* Layout & Spacing */
-  --header-height: 62px;
+  --header-height: 64px;
   --page-padding: 28px;
   --radius-xs: 4px;
   --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
-  --radius-xl: 24px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
   --radius-full: 9999px;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 14px -2px rgba(0, 0, 0, 0.08), 0 2px 6px -2px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 12px 32px -4px rgba(0, 0, 0, 0.1), 0 4px 10px -4px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 24px 48px -8px rgba(0, 0, 0, 0.14);
-  --glow-cyan: 0 0 18px -2px rgba(2, 132, 199, 0.22);
-  --glow-purple: 0 0 18px -2px rgba(124, 58, 237, 0.2);
-  --glow-emerald: 0 0 18px -2px rgba(5, 150, 105, 0.2);
+  /* Tactile Shadows */
+  --shadow-sm: 0 1px 3px 0 rgba(24, 24, 24, 0.05), 0 1px 2px -1px rgba(24, 24, 24, 0.03);
+  --shadow-md: 0 4px 16px -2px rgba(24, 24, 24, 0.06), 0 2px 6px -2px rgba(24, 24, 24, 0.03);
+  --shadow-lg: 0 14px 34px -4px rgba(24, 24, 24, 0.08), 0 4px 12px -4px rgba(24, 24, 24, 0.04);
+  --shadow-xl: 0 24px 50px -8px rgba(24, 24, 24, 0.12);
+  --glow-pill: 0 4px 14px 0 rgba(24, 24, 24, 0.18);
+  --glow-emerald: 0 0 18px -2px rgba(22, 163, 74, 0.3);
+  --glow-rose: 0 0 18px -2px rgba(220, 38, 38, 0.3);
 
   --transition-fast: 140ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 220ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -111,7 +120,7 @@ input, select, textarea {
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: var(--radius-full); }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent-cyan); }
 
-/* ─── Glass Card ─────────────────────────────────────────── */
+/* ─── Glass Card & Architectural Panels ──────────────────── */
 .glass-panel {
   background: var(--bg-card);
   border: 1px solid var(--border-card);
@@ -124,7 +133,43 @@ input, select, textarea {
 }
 .glass-panel-hover:hover {
   box-shadow: var(--shadow-md);
-  border-color: rgba(2, 132, 199, 0.25);
+  border-color: rgba(24, 24, 24, 0.18);
+  transform: translateY(-1px);
+}
+
+/* ─── Cowboy Pill Button Utilities ───────────────────────── */
+.btn-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-pill-primary {
+  background-color: var(--text-primary);
+  color: #ffffff;
+  border: 1px solid var(--text-primary);
+  box-shadow: 0 2px 8px rgba(24, 24, 24, 0.16);
+}
+.btn-pill-primary:hover:not(:disabled) {
+  background-color: #000000;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(24, 24, 24, 0.24);
+}
+
+.btn-pill-secondary {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-card);
+}
+.btn-pill-secondary:hover:not(:disabled) {
+  background-color: var(--bg-tertiary);
+  border-color: rgba(24, 24, 24, 0.2);
   transform: translateY(-1px);
 }
 

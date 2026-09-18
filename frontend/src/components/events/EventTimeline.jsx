@@ -2,22 +2,22 @@ import React, { useState, useEffect, useRef } from 'react';
 import { IconActivity, IconChevronDown, IconChevronRight } from '../ui/Icons';
 
 const EVENT_CATEGORY_MAP = {
-  MISSION_STARTED:    { category: 'MISSION',     color: 'var(--accent-cyan)',    bg: 'var(--accent-cyan-dim)',   status: 'STARTED',  statusColor: 'var(--accent-cyan)' },
+  MISSION_STARTED:    { category: 'MISSION',     color: 'var(--text-primary)',   bg: 'var(--bg-tertiary)',       status: 'STARTED',  statusColor: 'var(--text-secondary)' },
   MISSION_COMPLETED:  { category: 'MISSION',     color: 'var(--accent-emerald)', bg: 'var(--accent-emerald-dim)',status: 'SUCCESS',  statusColor: 'var(--accent-emerald)' },
   MISSION_FAILED:     { category: 'MISSION',     color: 'var(--accent-rose)',    bg: 'var(--accent-rose-dim)',   status: 'FAILED',   statusColor: 'var(--accent-rose)' },
   TOOL_SUCCESS:       { category: 'TOOL CALL',   color: 'var(--accent-emerald)', bg: 'var(--accent-emerald-dim)',status: 'SUCCESS',  statusColor: 'var(--accent-emerald)' },
   TOOL_FAILED:        { category: 'TOOL CALL',   color: 'var(--accent-rose)',    bg: 'var(--accent-rose-dim)',   status: 'FAILED',   statusColor: 'var(--accent-rose)' },
-  TOOL_STARTED:       { category: 'TOOL CALL',   color: 'var(--accent-amber)',   bg: 'var(--accent-amber-dim)',  status: 'EXEC',     statusColor: 'var(--accent-amber)' },
-  TOOL_SELECTED:      { category: 'PLAN & LLM',  color: 'var(--accent-purple)',  bg: 'var(--accent-purple-dim)', status: 'SELECTED', statusColor: 'var(--accent-purple)' },
-  TOOL_REJECTED:      { category: 'VALIDATION',  color: '#ea580c',               bg: 'rgba(234,88,12,0.1)',      status: 'REJECTED', statusColor: '#ea580c' },
-  PLAN_CREATED:       { category: 'PLAN & LLM',  color: 'var(--accent-purple)',  bg: 'var(--accent-purple-dim)', status: 'PLANNED',  statusColor: 'var(--accent-purple)' },
-  PLAN_INVALIDATED:   { category: 'REPLAN',      color: 'var(--accent-amber)',   bg: 'var(--accent-amber-dim)',  status: 'INVALID',  statusColor: 'var(--accent-amber)' },
-  REPLAN_STARTED:     { category: 'REPLAN',      color: 'var(--accent-amber)',   bg: 'var(--accent-amber-dim)',  status: 'REPLAN',   statusColor: 'var(--accent-amber)' },
+  TOOL_STARTED:       { category: 'TOOL CALL',   color: 'var(--text-primary)',   bg: 'var(--bg-tertiary)',       status: 'EXEC',     statusColor: 'var(--text-muted)' },
+  TOOL_SELECTED:      { category: 'PLAN & LLM',  color: 'var(--text-primary)',   bg: 'var(--bg-tertiary)',       status: 'SELECTED', statusColor: 'var(--text-secondary)' },
+  TOOL_REJECTED:      { category: 'VALIDATION',  color: 'var(--accent-rose)',    bg: 'var(--accent-rose-dim)',   status: 'REJECTED', statusColor: 'var(--accent-rose)' },
+  PLAN_CREATED:       { category: 'PLAN & LLM',  color: 'var(--text-primary)',   bg: 'var(--bg-tertiary)',       status: 'PLANNED',  statusColor: 'var(--text-primary)' },
+  PLAN_INVALIDATED:   { category: 'REPLAN',      color: 'var(--accent-rose)',    bg: 'var(--accent-rose-dim)',   status: 'INVALID',  statusColor: 'var(--accent-rose)' },
+  REPLAN_STARTED:     { category: 'REPLAN',      color: 'var(--accent-rose)',    bg: 'var(--accent-rose-dim)',   status: 'REPLAN',   statusColor: 'var(--accent-rose)' },
   CHAOS_EVENT:        { category: 'CHAOS',       color: 'var(--accent-rose)',    bg: 'var(--accent-rose-dim)',   status: 'INJECTED', statusColor: 'var(--accent-rose)' },
   VALIDATION_STARTED: { category: 'VALIDATION',  color: 'var(--text-muted)',     bg: 'var(--bg-tertiary)',       status: 'CHECKING', statusColor: 'var(--text-muted)' },
   VALIDATION_PASSED:  { category: 'VALIDATION',  color: 'var(--accent-emerald)', bg: 'var(--accent-emerald-dim)',status: 'PASSED',   statusColor: 'var(--accent-emerald)' },
   VALIDATION_FAILED:  { category: 'VALIDATION',  color: 'var(--accent-rose)',    bg: 'var(--accent-rose-dim)',   status: 'FAILED',   statusColor: 'var(--accent-rose)' },
-  OBSERVATION:        { category: 'OBSERVE',     color: 'var(--accent-cyan)',    bg: 'var(--accent-cyan-dim)',   status: 'UPDATED',  statusColor: 'var(--accent-cyan)' },
+  OBSERVATION:        { category: 'OBSERVE',     color: 'var(--text-secondary)', bg: 'var(--bg-tertiary)',       status: 'UPDATED',  statusColor: 'var(--text-muted)' },
 };
 
 const FILTERS = [
@@ -98,17 +98,17 @@ export const EventTimeline = ({ events = [] }) => {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{
-            width: 32, height: 32, borderRadius: 'var(--radius-sm)',
-            backgroundColor: 'var(--accent-cyan-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center'
+            width: 32, height: 32, borderRadius: '8px',
+            backgroundColor: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center'
           }}>
-            <IconActivity size={18} color="var(--accent-cyan)" />
+            <IconActivity size={17} color="var(--text-primary)" />
           </div>
           <div>
-            <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+            <h3 style={{ fontSize: '0.96rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em', margin: 0 }}>
               Execution Trace & Telemetry Stream
             </h3>
-            <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--accent-cyan)' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--text-primary)' }}>
                 {events.length} total events
               </span>
               <span>•</span>
@@ -130,12 +130,12 @@ export const EventTimeline = ({ events = [] }) => {
                 onClick={() => setFilterType(f.id)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '6px',
-                  padding: '5px 11px', borderRadius: 'var(--radius-sm)',
-                  fontSize: '0.74rem', fontWeight: 600,
-                  color: isSelected ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-                  backgroundColor: isSelected ? 'var(--accent-cyan-dim)' : 'var(--bg-secondary)',
-                  border: isSelected ? '1px solid var(--accent-cyan)' : '1px solid var(--border-card)',
-                  boxShadow: isSelected ? '0 1px 4px rgba(2, 132, 199, 0.12)' : 'none',
+                  padding: '5px 12px', borderRadius: 'var(--radius-full)',
+                  fontSize: '0.73rem', fontWeight: isSelected ? 800 : 500,
+                  color: isSelected ? '#ffffff' : 'var(--text-secondary)',
+                  backgroundColor: isSelected ? 'var(--text-primary)' : 'var(--bg-secondary)',
+                  border: isSelected ? '1px solid var(--text-primary)' : '1px solid var(--border-card)',
+                  cursor: 'pointer',
                   transition: 'all var(--transition-fast)',
                 }}
               >
@@ -144,7 +144,7 @@ export const EventTimeline = ({ events = [] }) => {
                   fontSize: '0.65rem',
                   padding: '1px 5px',
                   borderRadius: 'var(--radius-full)',
-                  backgroundColor: isSelected ? 'var(--accent-cyan)' : 'var(--bg-tertiary)',
+                  backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : 'var(--bg-tertiary)',
                   color: isSelected ? '#ffffff' : 'var(--text-muted)',
                   fontFamily: 'var(--font-mono)',
                   fontWeight: 700,

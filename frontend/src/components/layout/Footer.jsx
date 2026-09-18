@@ -28,13 +28,13 @@ export const Footer = ({ activePage, setActivePage }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
             <div style={{
               width: 32, height: 32, borderRadius: 8,
-              background: 'linear-gradient(135deg, #0284c7, #7c3aed)',
+              background: 'var(--brand-grid)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <IconBrain size={17} color="#ffffff" />
             </div>
-            <span style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>
-              GridMind
+            <span style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: '-0.035em', color: 'var(--brand-grid)' }}>
+              Grid<span style={{ color: 'var(--brand-mind)' }}>Mind</span><span style={{ color: 'var(--brand-mind)' }}>.</span>
             </span>
           </div>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.65, maxWidth: '260px' }}>
@@ -54,8 +54,8 @@ export const Footer = ({ activePage, setActivePage }) => {
                 onClick={() => setActivePage && setActivePage(link.id)}
                 style={{
                   fontSize: '0.85rem',
-                  color: activePage === link.id ? 'var(--accent-cyan)' : 'var(--text-secondary)',
-                  fontWeight: activePage === link.id ? 600 : 400,
+                  color: activePage === link.id ? 'var(--brand-mind)' : 'var(--text-secondary)',
+                  fontWeight: activePage === link.id ? 700 : 400,
                   textAlign: 'left',
                   transition: 'color var(--transition-fast)',
                   cursor: 'pointer',
