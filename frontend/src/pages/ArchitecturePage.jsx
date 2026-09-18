@@ -1,160 +1,641 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
-export const ArchitecturePage = () => {
-  const modules = [
-    {
-      id: 'AGENT',
-      title: 'Agent Core (The Brain)',
-      path: 'backend/core/, backend/llm/',
-      color: 'var(--accent-purple)',
-      desc: 'Orchestrates the autonomous loop: StateManager, Memory, Planner, RecoveryEngine, and ActionValidator. Prompts LLM for decisions.'
-    },
-    {
-      id: 'SIMULATOR',
-      title: 'Grid Simulator (The Physical World)',
-      path: 'backend/grid/',
-      color: 'var(--accent-cyan)',
-      desc: 'Simulates physical power grid: generators, substations (S1, S2, S3), transmission line capacities (TL1, TL4), loads, and physical chaos events.'
-    },
-    {
-      id: 'CAPABILITIES',
-      title: 'Tool Registry (The Hands)',
-      path: 'backend/capabilities/',
-      color: 'var(--accent-amber)',
-      desc: 'Tool registry with JSON schema contracts: redistribution_engine, priority_load_manager, battery_engine, grid_analyzer, and outcome verification.'
-    },
-    {
-      id: 'TELEMETRY',
-      title: 'API & Stream Interface (The Window)',
-      path: 'backend/api/, frontend/',
-      color: 'var(--accent-emerald)',
-      desc: 'FastAPI HTTP endpoints, real-time WebSocket event broadcaster, cinematic control room dashboard, and end-to-end integration test suite.'
-    }
-  ];
+/* ─── Theme ─────────────────────────────────────────────────────────────────── */
+const C = {
+  canvas: '#F5F1E9',
+  card:   '#FCFAF6',
+  white:  '#FFFFFF',
+  ink:    '#181818',
+  ink2:   '#3D3D3D',
+  muted:  '#6B6660',
+  faint:  '#9C9690',
+  border: '#E2DBD0',
+  mind:   '#16a34a',
+  red:    '#dc2626',
+  amber:  '#d97706',
+};
 
-  const rules = [
-    { num: 'Rule 1', title: 'The LLM Never Executes Tools Directly', desc: 'The LLM outputs structured decisions (ToolCall). The Python Executor dispatches and sandboxes capabilities.' },
-    { num: 'Rule 2', title: 'The Simulator Does Not Decide Agent Policy', desc: 'Simulator only models physical grid laws and constraints. All strategy emerges from the agent brain.' },
-    { num: 'Rule 3', title: 'Actions Must Be Validated Before Execution', desc: 'Pre-flight ActionValidator checks input types, arguments, and safety boundaries before passing to simulator.' },
-    { num: 'Rule 4', title: 'Outcomes Must Be Verified By Code', desc: 'The LLM cannot declare its own success. A deterministic Python validator verifies critical load power and constraints.' },
-    { num: 'Rule 5', title: 'Recovery Must Be Dynamic, Never Hardcoded', desc: 'When TL4 overloads, no static if/else router kicks in. The error is presented in memory context, allowing the LLM to replan.' },
-    { num: 'Rule 6', title: 'Failure Is A First-Class Agent Event', desc: 'Exceptions and domain rejections are captured as structured AgentEvent records and broadcast over WebSocket.' }
-  ];
+/* ─── Stage Data ─────────────────────────────────────────────────────────────── */
+const STAGES = [
+  {
+    num: '01',
+    id:  'user',
+    label: 'User / Goal',
+    title: 'It all starts with a mission.',
+    body: 'The operator defines the objective for GridMind — for example: keep critical facilities powered during a disruption. The goal, constraints, and priorities guide every downstream decision the agent makes.',
+    quote: '"Keep the city running, even when things go wrong."',
+    icon: '⬡',
+    checklist: [
+      'Define mission objective',
+      'Set critical load priorities',
+      'Optionally inject chaos faults',
+      'Monitor agent progress live',
+    ],
+    bg: C.ink,
+  },
+  {
+    num: '02',
+    id:  'agent',
+    label: 'Agent Core',
+    title: 'The autonomous reasoning loop.',
+    body: 'The Agent Core runs a closed loop: observe the grid physics, pass rich context to an LLM, validate the proposed action with code before executing it, and verify the outcome deterministically — never trusting the LLM\'s own assessment of success.',
+    quote: '"No hardcoded rules. Pure closed-loop physical feedback."',
+    icon: '◈',
+    checklist: [
+      'Observer reads raw grid physics',
+      'Episodic memory adds failure context',
+      'LLM selects best capability',
+      'Outcome verified by Python code',
+    ],
+    bg: C.ink,
+  },
+  {
+    num: '03',
+    id:  'capabilities',
+    label: 'Capabilities',
+    title: 'Four sandboxed tools. Strict schemas.',
+    body: 'The Capability Registry exposes four atomic actions to the LLM — each behind a strict Pydantic schema. The agent cannot invent arguments or call OS commands. Every tool either succeeds within physical limits or fails with a structured error the agent learns from.',
+    quote: '"The LLM picks the tool. The schema enforces the rules."',
+    icon: '⊕',
+    checklist: [
+      'Redistribution Engine — reroute power',
+      'Priority Load Manager — shed factory first',
+      'Battery Engine — dispatch reserve power',
+      'Grid Analyzer — read-only inspection',
+    ],
+    bg: C.ink,
+  },
+  {
+    num: '04',
+    id:  'grid',
+    label: 'Simulated Grid',
+    title: 'Deterministic physics. Real constraints.',
+    body: 'A digital twin of a real microgrid with two generators, a battery reserve, three substations, and five transmission lines with hard MW ceilings. The simulator enforces physical laws independently of the agent — overloaded lines trip automatically.',
+    quote: '"Physics is immutable. It cannot be overridden by prompt."',
+    icon: '◉',
+    checklist: [
+      'G1 Gas 150MW + G2 Solar 50MW',
+      'B1 Battery Reserve — 100MWh',
+      'Substations S1, S2, S3',
+      'Transmission lines TL1–TL5',
+    ],
+    bg: C.ink,
+  },
+  {
+    num: '05',
+    id:  'validation',
+    label: 'Validation & Recovery',
+    title: 'The agent learns. Never repeats.',
+    body: 'The Pre-Flight Validator blocks bad actions before they execute. The Outcome Validator checks that hospitals are powered — with Python code, not LLM assertion. When a tool fails, the Recovery Engine extracts a constraint from the error and feeds it back so the next plan is smarter.',
+    quote: '"Success is proved by code. Failure is turned into knowledge."',
+    icon: '⬟',
+    checklist: [
+      'Schema + bounds check before execution',
+      'Code-verified critical load safety',
+      'Learn constraints from failure payloads',
+      'Autonomous replan with new context',
+    ],
+    bg: C.ink,
+  },
+  {
+    num: '06',
+    id:  'dashboard',
+    label: 'Dashboard',
+    title: 'Every decision. In real time.',
+    body: 'A live WebSocket stream delivers every agent event — observation, plan, validation, execution, recovery — to Mission Control with sub-150ms latency. The Grid Visualizer, Agent Brain Panel, and Event Timeline give full transparency into every autonomous decision.',
+    quote: '"Nothing hidden. Complete auditability for every action."',
+    icon: '⬟',
+    checklist: [
+      'WebSocket stream — zero polling',
+      'Live power flows and line states',
+      'LLM reasoning chain exposed',
+      'Full immutable audit trail',
+    ],
+    bg: C.ink,
+  },
+];
+
+/* ─── Perspective Card Stack (right panel) ────────────────────────────────── */
+function CardStack({ activeIdx }) {
+  return (
+    <div style={{
+      position: 'relative',
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      perspective: '1100px',
+      perspectiveOrigin: '40% 50%',
+    }}>
+      <div style={{
+        position: 'relative',
+        width: 260,
+        height: 340,
+        transformStyle: 'preserve-3d',
+      }}>
+        {STAGES.map((stage, i) => {
+          const offset = i - activeIdx;
+          const isActive = offset === 0;
+          const isBehind = offset > 0;
+
+          // Compute 3D transform: active card is front-centre,
+          // future cards recede in perspective, past cards disappear
+          let tx = offset * 72;
+          let tz = offset * -90;
+          let scale = Math.max(0.62, 1 - Math.abs(offset) * 0.1);
+          let opacity = isActive ? 1 : isBehind ? Math.max(0.18, 0.72 - offset * 0.18) : 0;
+          let ry = offset * 6;
+          let zIndex = 100 - Math.abs(offset) * 10;
+
+          if (offset < 0) return null; // hide past stages
+
+          return (
+            <div
+              key={stage.id}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                opacity,
+                zIndex,
+                transform: `translateX(${tx}px) translateZ(${tz}px) scale(${scale}) rotateY(${ry}deg)`,
+                transition: 'all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                transformOrigin: 'center center',
+                borderRadius: 18,
+                backgroundColor: isActive ? C.white : 'rgba(252,250,246,0.8)',
+                border: `${isActive ? 2 : 1}px solid ${isActive ? C.ink : C.border}`,
+                boxShadow: isActive
+                  ? '0 16px 48px rgba(24,24,24,0.16), 0 4px 16px rgba(0,0,0,0.08)'
+                  : '0 4px 12px rgba(0,0,0,0.06)',
+                display: 'flex',
+                flexDirection: 'column',
+                padding: '22px 24px',
+                gap: 12,
+                pointerEvents: 'none',
+              }}
+            >
+              {/* Stage number + icon */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{
+                  fontFamily: 'ui-monospace, monospace',
+                  fontSize: '0.68rem',
+                  fontWeight: 800,
+                  color: isActive ? C.mind : C.faint,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                }}>
+                  STAGE {stage.num}
+                </span>
+                <span style={{
+                  width: 36, height: 36, borderRadius: '50%',
+                  backgroundColor: isActive ? C.ink : 'rgba(24,24,24,0.06)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '1rem',
+                  color: isActive ? '#fff' : C.faint,
+                }}>
+                  {stage.icon}
+                </span>
+              </div>
+
+              {/* Label */}
+              <div style={{
+                fontSize: isActive ? '0.92rem' : '0.8rem',
+                fontWeight: 800,
+                color: isActive ? C.ink : C.muted,
+                letterSpacing: '-0.01em',
+              }}>
+                {stage.label}
+              </div>
+
+              {/* Checklist — only on active card */}
+              {isActive && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+                  {stage.checklist.map((item, ci) => (
+                    <div key={ci} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                      <span style={{
+                        width: 16, height: 16, borderRadius: '50%',
+                        backgroundColor: C.mind,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0,
+                        marginTop: 1,
+                      }}>
+                        <span style={{ color: '#fff', fontSize: '0.6rem', fontWeight: 900 }}>✓</span>
+                      </span>
+                      <span style={{ fontSize: '0.76rem', color: C.ink2, lineHeight: 1.4 }}>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Subtle label text on behind cards */}
+              {!isActive && isBehind && (
+                <div style={{ fontSize: '0.7rem', color: C.faint, lineHeight: 1.4, marginTop: 4 }}>
+                  {stage.checklist[0]}
+                </div>
+              )}
+
+              {/* Footer tag */}
+              <div style={{ marginTop: 'auto', paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+                <span style={{
+                  fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase',
+                  letterSpacing: '0.07em', color: isActive ? C.mind : C.faint,
+                }}>
+                  GridMind Architecture
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Horizontal Stepper ─────────────────────────────────────────────────────── */
+function Stepper({ activeIdx, onStep }) {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'flex-start',
+      gap: 0,
+      marginBottom: 40,
+      overflowX: 'auto',
+      paddingBottom: 4,
+    }}>
+      {STAGES.map((stage, i) => {
+        const isActive = i === activeIdx;
+        const isDone = i < activeIdx;
+
+        return (
+          <React.Fragment key={stage.id}>
+            {/* Step */}
+            <button
+              onClick={() => onStep(i)}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 6,
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '0 4px',
+                flexShrink: 0,
+                minWidth: 80,
+              }}
+            >
+              {/* Circle */}
+              <div style={{
+                width: 32, height: 32, borderRadius: '50%',
+                backgroundColor: isActive ? C.mind : isDone ? C.ink : 'transparent',
+                border: `2px solid ${isActive ? C.mind : isDone ? C.ink : C.border}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.3s ease',
+                boxShadow: isActive ? `0 0 0 4px ${C.mind}25` : 'none',
+              }}>
+                {isDone ? (
+                  <span style={{ color: '#fff', fontSize: '0.72rem', fontWeight: 900 }}>✓</span>
+                ) : (
+                  <span style={{
+                    fontFamily: 'ui-monospace, monospace',
+                    fontSize: '0.65rem',
+                    fontWeight: 800,
+                    color: isActive ? '#fff' : C.faint,
+                  }}>{stage.num}</span>
+                )}
+              </div>
+
+              {/* Label */}
+              <span style={{
+                fontSize: '0.68rem',
+                fontWeight: isActive ? 800 : 600,
+                color: isActive ? C.ink : C.faint,
+                textAlign: 'center',
+                lineHeight: 1.3,
+                whiteSpace: 'nowrap',
+                transition: 'color 0.3s ease',
+              }}>
+                {stage.label}
+              </span>
+
+              {/* Active underline */}
+              <div style={{
+                width: '100%', height: 2,
+                backgroundColor: isActive ? C.mind : 'transparent',
+                borderRadius: 99,
+                transition: 'all 0.3s ease',
+              }} />
+            </button>
+
+            {/* Connector line between steps */}
+            {i < STAGES.length - 1 && (
+              <div style={{
+                flex: 1, height: 2, marginTop: 15,
+                backgroundColor: i < activeIdx ? C.ink : C.border,
+                transition: 'background-color 0.4s ease',
+                minWidth: 20,
+              }} />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ─── Left Content Panel ─────────────────────────────────────────────────────── */
+function LeftPanel({ stage, onNext, onPrev, activeIdx, total }) {
+  const [visible, setVisible] = useState(true);
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 24px 64px 24px' }}>
-      {/* Page Header */}
-      <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-        <h1 style={{ fontSize: '2.4rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: '12px' }}>
-          GridMind System Architecture
-        </h1>
-        <p style={{ fontSize: '1.05rem', color: 'var(--text-secondary)', maxWidth: '720px', margin: '0 auto' }}>
-          Clean modular decoupling between The Brain (Agent Core), The Physical World (Simulator), The Tools (Capabilities), and The Interface (API & Telemetry).
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 0,
+      height: '100%',
+      opacity: visible ? 1 : 0,
+      transform: visible ? 'translateY(0)' : 'translateY(12px)',
+      transition: 'opacity 0.3s ease, transform 0.3s ease',
+    }}>
+      {/* Stage badge */}
+      <div style={{ marginBottom: 16 }}>
+        <span style={{
+          fontFamily: 'ui-monospace, monospace',
+          fontSize: '0.72rem',
+          fontWeight: 800,
+          color: C.mind,
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+        }}>
+          STAGE {stage.num}
+        </span>
+      </div>
+
+      {/* Big title */}
+      <h2 style={{
+        fontSize: 'clamp(1.9rem, 3.2vw, 2.8rem)',
+        fontWeight: 900,
+        letterSpacing: '-0.04em',
+        lineHeight: 1.1,
+        color: C.ink,
+        marginBottom: 6,
+      }}>
+        {stage.label}
+      </h2>
+
+      {/* Subtitle */}
+      <p style={{
+        fontSize: '1rem',
+        fontWeight: 700,
+        color: C.mind,
+        marginBottom: 18,
+        letterSpacing: '-0.01em',
+      }}>
+        {stage.title}
+      </p>
+
+      {/* Body */}
+      <p style={{
+        fontSize: '0.88rem',
+        color: C.ink2,
+        lineHeight: 1.7,
+        marginBottom: 20,
+      }}>
+        {stage.body}
+      </p>
+
+      {/* Quote block */}
+      <div style={{
+        borderLeft: `3px solid ${C.mind}`,
+        paddingLeft: 16,
+        marginBottom: 28,
+        backgroundColor: 'rgba(22,163,74,0.05)',
+        padding: '10px 14px 10px 16px',
+        borderRadius: '0 8px 8px 0',
+      }}>
+        <p style={{
+          fontSize: '0.84rem',
+          fontStyle: 'italic',
+          color: C.muted,
+          lineHeight: 1.55,
+          margin: 0,
+        }}>
+          {stage.quote}
         </p>
       </div>
 
-      {/* Visual System Flowchart Diagram */}
-      <div className="glass-panel" style={{ padding: '32px', marginBottom: '48px' }}>
-        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '20px', textAlign: 'center' }}>
-          Real-Time Closed-Loop Information Flow
-        </h3>
+      {/* Nav buttons */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 'auto' }}>
+        {activeIdx > 0 && (
+          <button
+            onClick={onPrev}
+            style={{
+              padding: '10px 20px',
+              borderRadius: 99,
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              border: `1.5px solid ${C.border}`,
+              backgroundColor: 'transparent',
+              color: C.ink,
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6,
+              transition: 'all 0.2s',
+            }}
+          >
+            ← Prev
+          </button>
+        )}
 
+        {activeIdx < total - 1 ? (
+          <button
+            onClick={onNext}
+            style={{
+              padding: '10px 24px',
+              borderRadius: 99,
+              fontSize: '0.82rem',
+              fontWeight: 800,
+              border: 'none',
+              backgroundColor: C.ink,
+              color: '#fff',
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6,
+              transition: 'all 0.2s',
+              boxShadow: '0 3px 12px rgba(24,24,24,0.18)',
+            }}
+          >
+            Next →
+          </button>
+        ) : (
+          <span style={{ fontSize: '0.78rem', color: C.mind, fontWeight: 700 }}>
+            ✓ Tour complete
+          </span>
+        )}
+
+        {/* Progress counter */}
+        <span style={{
+          marginLeft: 'auto',
+          fontFamily: 'ui-monospace, monospace',
+          fontSize: '0.7rem',
+          color: C.faint,
+          fontWeight: 700,
+        }}>
+          {activeIdx + 1} / {total}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Main Page ──────────────────────────────────────────────────────────────── */
+export const ArchitecturePage = ({ onOpenDashboard }) => {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [panelKey, setPanelKey] = useState(0); // forces left panel re-mount for animation
+
+  const goTo = (idx) => {
+    if (idx < 0 || idx >= STAGES.length) return;
+    setPanelKey(k => k + 1);
+    setActiveIdx(idx);
+  };
+
+  const stage = STAGES[activeIdx];
+
+  return (
+    <div style={{
+      backgroundColor: C.canvas,
+      minHeight: '100vh',
+      padding: '40px 40px 60px',
+    }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+
+        {/* ── Header ── */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 36, flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              padding: '4px 12px', borderRadius: 99,
+              backgroundColor: 'rgba(236,229,216,0.8)', border: `1px solid ${C.border}`,
+              fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em',
+              marginBottom: 10,
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: C.mind }} />
+              System Architecture
+            </div>
+            <h1 style={{
+              fontSize: 'clamp(1.8rem, 4vw, 3rem)',
+              fontWeight: 900,
+              letterSpacing: '-0.04em',
+              lineHeight: 1.05,
+              color: C.ink,
+              margin: 0,
+            }}>
+              How <span style={{ color: C.mind }}>GridMind</span> Works
+            </h1>
+            <p style={{ fontSize: '0.85rem', color: C.muted, marginTop: 6 }}>
+              A guided tour through the autonomous microgrid architecture.
+            </p>
+          </div>
+          <p style={{
+            fontSize: '0.7rem', color: C.faint, fontWeight: 700,
+            textTransform: 'uppercase', letterSpacing: '0.12em', textAlign: 'right',
+          }}>
+            Explore. Understand.<br />See the bigger picture.
+          </p>
+        </div>
+
+        {/* ── Stepper ── */}
+        <Stepper activeIdx={activeIdx} onStep={goTo} />
+
+        {/* ── Main Stage Area ── */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: '12px',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 40,
+          minHeight: 460,
           alignItems: 'center',
-          textAlign: 'center'
         }}>
-          {/* Node 1 */}
-          <div style={{ padding: '16px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>1. Trigger</div>
-            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>Mission Goal</div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--accent-cyan)', marginTop: '4px' }}>Maintain critical loads</div>
+
+          {/* Left: text content */}
+          <div style={{
+            backgroundColor: C.white,
+            border: `1px solid ${C.border}`,
+            borderRadius: 20,
+            padding: '36px 36px',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 2px 16px rgba(0,0,0,0.05)',
+          }}>
+            <LeftPanel
+              key={panelKey}
+              stage={stage}
+              activeIdx={activeIdx}
+              total={STAGES.length}
+              onNext={() => goTo(activeIdx + 1)}
+              onPrev={() => goTo(activeIdx - 1)}
+            />
           </div>
 
-          <div style={{ color: 'var(--text-muted)', fontWeight: 700 }}>➔</div>
+          {/* Right: 3D card stack */}
+          <div style={{
+            backgroundColor: C.canvas,
+            borderRadius: 20,
+            height: 420,
+            position: 'relative',
+            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            {/* Subtle dot grid */}
+            <div style={{
+              position: 'absolute', inset: 0,
+              backgroundImage: `radial-gradient(circle, ${C.border} 1px, transparent 1px)`,
+              backgroundSize: '24px 24px',
+              opacity: 0.6,
+              pointerEvents: 'none',
+            }} />
 
-          {/* Node 2 */}
-          <div style={{ padding: '16px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--accent-purple)' }}>
-            <div style={{ fontSize: '0.7rem', color: 'var(--accent-purple)', textTransform: 'uppercase', fontWeight: 600 }}>2. Agent Core</div>
-            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>Planner ↔ LLM</div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>Decides ToolCall</div>
-          </div>
+            {/* Gradient vignette edges */}
+            <div style={{
+              position: 'absolute', inset: 0,
+              background: `radial-gradient(ellipse 80% 80% at 40% 50%, transparent 40%, ${C.canvas} 100%)`,
+              pointerEvents: 'none',
+              zIndex: 10,
+            }} />
 
-          <div style={{ color: 'var(--text-muted)', fontWeight: 700 }}>➔</div>
-
-          {/* Node 3 */}
-          <div style={{ padding: '16px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--accent-amber)' }}>
-            <div style={{ fontSize: '0.7rem', color: 'var(--accent-amber)', textTransform: 'uppercase', fontWeight: 600 }}>3. Capability Layer</div>
-            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>Tool Registry</div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>Schema Checked</div>
-          </div>
-
-          <div style={{ color: 'var(--text-muted)', fontWeight: 700 }}>➔</div>
-
-          {/* Node 4 */}
-          <div style={{ padding: '16px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--accent-cyan)' }}>
-            <div style={{ fontSize: '0.7rem', color: 'var(--accent-cyan)', textTransform: 'uppercase', fontWeight: 600 }}>4. Simulator</div>
-            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>Grid Simulator</div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>Power Balance & Line Limits</div>
-          </div>
-
-          <div style={{ color: 'var(--text-muted)', fontWeight: 700 }}>➔</div>
-
-          {/* Node 5 */}
-          <div style={{ padding: '16px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--accent-emerald)' }}>
-            <div style={{ fontSize: '0.7rem', color: 'var(--accent-emerald)', textTransform: 'uppercase', fontWeight: 600 }}>5. Telemetry Stream</div>
-            <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px' }}>FastAPI / WebSocket</div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>Live Browser Feed</div>
+            <CardStack activeIdx={activeIdx} />
           </div>
         </div>
+
+        {/* ── Bottom strip ── */}
+        <div style={{
+          marginTop: 24,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexWrap: 'wrap', gap: 14,
+          backgroundColor: C.ink,
+          borderRadius: 14,
+          padding: '18px 26px',
+        }}>
+          <div>
+            <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#fff' }}>See it run live. </span>
+            <span style={{ fontSize: '0.83rem', color: '#A8A29E' }}>Inject a fault, watch the agent recover autonomously.</span>
+          </div>
+          <button
+            onClick={onOpenDashboard}
+            style={{
+              padding: '9px 22px', borderRadius: 99, fontSize: '0.82rem', fontWeight: 800,
+              backgroundColor: '#fff', color: C.ink, border: 'none', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            Launch Mission Control →
+          </button>
+        </div>
+
       </div>
-
-      {/* Module Breakdown */}
-      <section style={{ marginBottom: '48px' }}>
-        <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '20px' }}>
-          System Architecture & Interface Contracts
-        </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
-          {modules.map((m) => (
-            <div key={m.id} className="glass-panel" style={{ padding: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <span className="badge" style={{ backgroundColor: `${m.color}22`, color: m.color, border: `1px solid ${m.color}` }}>
-                  {m.id}
-                </span>
-                <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{m.title}</span>
-              </div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
-                {m.path}
-              </div>
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                {m.desc}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* 6 Golden Rules */}
-      <section>
-        <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '20px' }}>
-          The 6 Architectural Invariants of GridMind
-        </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
-          {rules.map((r, i) => (
-            <div key={i} className="glass-panel" style={{ padding: '18px 20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-purple)' }}>{r.num}</span>
-                <h4 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-primary)' }}>{r.title}</h4>
-              </div>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                {r.desc}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
     </div>
   );
 };

@@ -69,7 +69,9 @@ export function App() {
           />
         )}
 
-        {activePage === 'architecture' && <ArchitecturePage />}
+        {activePage === 'architecture' && (
+          <ArchitecturePage onOpenDashboard={() => setActivePage('dashboard')} />
+        )}
 
         {activePage === 'events' && <EventTracePage events={events} />}
       </main>

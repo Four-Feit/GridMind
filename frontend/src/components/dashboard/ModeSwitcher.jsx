@@ -36,15 +36,15 @@ const modes = [
 export const ModeSwitcher = ({ activeMode, setActiveMode }) => {
   return (
     <div style={{ marginBottom: '24px' }}>
-      {/* Pill tabs */}
+      {/* Cowboy Capsule Switcher */}
       <div style={{
         display: 'inline-flex',
         alignItems: 'center',
-        backgroundColor: 'var(--bg-secondary)',
+        backgroundColor: 'rgba(236, 229, 216, 0.65)',
         border: '1px solid var(--border-card)',
-        borderRadius: 'var(--radius-md)',
+        borderRadius: 'var(--radius-full)',
         padding: '4px',
-        gap: '2px',
+        gap: '4px',
         boxShadow: 'var(--shadow-sm)',
       }}>
         {modes.map((mode) => {
@@ -54,46 +54,48 @@ export const ModeSwitcher = ({ activeMode, setActiveMode }) => {
               key={mode.id}
               onClick={() => setActiveMode(mode.id)}
               style={{
-                display: 'flex', alignItems: 'center', gap: '7px',
-                padding: '8px 18px',
-                borderRadius: 'calc(var(--radius-md) - 2px)',
-                fontSize: '0.85rem', fontWeight: isActive ? 700 : 500,
-                color: isActive ? (
-                  mode.id === 'chaos' ? 'var(--accent-rose)' :
-                  mode.id === 'manual' ? 'var(--accent-purple)' :
-                  'var(--accent-cyan)'
-                ) : 'var(--text-secondary)',
-                backgroundColor: isActive ? (
-                  mode.id === 'chaos' ? 'var(--accent-rose-dim)' :
-                  mode.id === 'manual' ? 'var(--accent-purple-dim)' :
-                  'var(--accent-cyan-dim)'
-                ) : 'transparent',
-                border: isActive ? `1px solid ${
-                  mode.id === 'chaos' ? 'rgba(225,29,72,0.25)' :
-                  mode.id === 'manual' ? 'rgba(124,58,237,0.25)' :
-                  'rgba(2,132,199,0.25)'
-                }` : '1px solid transparent',
-                transition: 'all var(--transition-normal)',
+                display: 'flex', alignItems: 'center', gap: '8px',
+                padding: '8px 20px',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '0.84rem',
+                fontWeight: isActive ? 700 : 500,
+                color: isActive ? '#ffffff' : 'var(--text-secondary)',
+                backgroundColor: isActive ? 'var(--text-primary)' : 'transparent',
+                border: 'none',
+                boxShadow: isActive ? '0 2px 8px rgba(24, 24, 24, 0.2)' : 'none',
+                transition: 'all var(--transition-fast)',
                 whiteSpace: 'nowrap',
+                cursor: 'pointer',
               }}
             >
-              <span style={{ opacity: isActive ? 1 : 0.6 }}>{mode.icon}</span>
-              {mode.label}
+              <span style={{
+                display: 'flex', alignItems: 'center',
+                color: isActive ? (
+                  mode.id === 'chaos' ? '#fca5a5' :
+                  mode.id === 'manual' ? '#fde047' :
+                  '#86efac'
+                ) : 'inherit',
+                opacity: isActive ? 1 : 0.65
+              }}>
+                {mode.icon}
+              </span>
+              <span>{mode.label}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Mode description */}
+      {/* Mode description with clear signal dots */}
       <p style={{
         marginTop: '10px',
         fontSize: '0.82rem',
         color: 'var(--text-muted)',
-        display: 'flex', alignItems: 'center', gap: '6px',
+        display: 'flex', alignItems: 'center', gap: '8px',
       }}>
         <span style={{
-          width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-          backgroundColor: activeMode === 'chaos' ? 'var(--accent-rose)' : activeMode === 'manual' ? 'var(--accent-purple)' : 'var(--accent-cyan)',
+          width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+          backgroundColor: activeMode === 'chaos' ? 'var(--accent-rose)' : activeMode === 'manual' ? 'var(--accent-amber)' : 'var(--accent-emerald)',
+          boxShadow: activeMode === 'chaos' ? '0 0 6px var(--accent-rose)' : activeMode === 'manual' ? '0 0 6px var(--accent-amber)' : '0 0 6px var(--accent-emerald)',
         }} />
         {modes.find(m => m.id === activeMode)?.desc}
       </p>

@@ -7,14 +7,15 @@ import {
   IconAlertTriangle,
   IconCheckCircle,
   IconXCircle,
-  IconZap
+  IconZap,
+  IconRotateCcw
 } from '../ui/Icons';
 
 // SVG Viewport coordinate configuration (Guarantees zero clipping across all screen sizes)
 const SVG_W = 980;
 const SVG_H = 470;
 
-export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
+export const PowerGridVisualizer = ({ gridState, onSelectEntity, onReset, isLoading }) => {
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -140,13 +141,14 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--accent-cyan)' }} />
-            <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--accent-emerald)', boxShadow: '0 0 8px var(--accent-emerald)' }} />
+            <h3 style={{ fontSize: '0.98rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
               Physical Grid Topology & Dynamic Power Flow
             </h3>
             <span style={{
-              fontSize: '0.67rem', fontWeight: 700, padding: '2px 7px', borderRadius: 4,
-              backgroundColor: 'var(--accent-cyan-dim)', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)'
+              fontSize: '0.67rem', fontWeight: 700, padding: '3px 8px', borderRadius: 'var(--radius-full)',
+              backgroundColor: 'rgba(236, 229, 216, 0.75)', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)',
+              border: '1px solid var(--border-card)',
             }}>
               4-STAGE ARCHITECTURE
             </span>
@@ -156,32 +158,51 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
           </p>
         </div>
 
-        {/* Legend & Maximize Controls */}
+        {/* Legend & Maximize Controls — High-Visibility Red/Green/Amber Signals */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.73rem', color: 'var(--text-secondary)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--accent-cyan)' }} />
-              <span>Active Flow</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.73rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--accent-emerald)', boxShadow: '0 0 6px var(--accent-emerald)' }} />
+              <span style={{ color: 'var(--accent-emerald)' }}>Active Flow</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--accent-amber)' }} />
-              <span>Overloaded</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--accent-amber)', boxShadow: '0 0 6px var(--accent-amber)' }} />
+              <span style={{ color: 'var(--accent-amber)' }}>Overloaded</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--accent-rose)' }} />
-              <span>Fault / Offline</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--accent-rose)', boxShadow: '0 0 6px var(--accent-rose)' }} />
+              <span style={{ color: 'var(--accent-rose)' }}>Fault / Offline</span>
             </div>
           </div>
+
+          {onReset && (
+            <button
+              onClick={onReset}
+              disabled={isLoading}
+              title="Reset Grid & Mission State"
+              className="btn-pill btn-pill-secondary"
+              style={{
+                padding: '6px 14px',
+                fontSize: '0.74rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                opacity: isLoading ? 0.6 : 1,
+              }}
+            >
+              <IconRotateCcw size={13} />
+              <span>Reset</span>
+            </button>
+          )}
 
           <button
             onClick={() => setIsMaximized((v) => !v)}
             title={fullscreen ? 'Close fullscreen' : 'Expand full topology'}
+            className="btn-pill btn-pill-secondary"
             style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              padding: '5px 11px', borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border-card)', backgroundColor: 'var(--bg-tertiary)',
-              color: 'var(--text-secondary)', fontSize: '0.73rem', fontWeight: 600,
-              cursor: 'pointer', transition: 'all var(--transition-fast)',
+              padding: '6px 14px',
+              fontSize: '0.74rem',
             }}
           >
             {fullscreen ? (
@@ -289,7 +310,7 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
                 id: 'G1-S1',
                 d: 'M 155 155 C 195 155, 205 235, 225 240',
                 online: g1.online && s1.online,
-                color: 'var(--accent-cyan)',
+                color: 'var(--accent-emerald)',
                 active: isLineActiveForInspection('G1-S1'),
               },
               // G2 -> S1
@@ -297,7 +318,7 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
                 id: 'G2-S1',
                 d: 'M 155 330 C 195 330, 205 255, 225 250',
                 online: g2.online && s1.online,
-                color: 'var(--accent-cyan)',
+                color: 'var(--accent-emerald)',
                 active: isLineActiveForInspection('G2-S1'),
               },
               // TL1: S1 -> S2
@@ -305,7 +326,7 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
                 id: 'TL1',
                 d: 'M 335 245 L 400 245',
                 online: tl1.online && s1.online && s2.online,
-                color: tl1.online && s2.online ? 'var(--accent-cyan)' : 'var(--accent-rose)',
+                color: tl1.online && s2.online ? 'var(--accent-emerald)' : 'var(--accent-rose)',
                 active: isLineActiveForInspection('TL1'),
                 label: `TL1: ${tl1.load_mw}/${tl1.capacity_mw}MW`,
                 labelX: 367,
@@ -317,7 +338,7 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
                 d: 'M 520 245 L 585 245',
                 online: tl4.online && s2.online && s3.online,
                 overloaded: isTl4Overloaded,
-                color: isTl4Overloaded ? 'var(--accent-amber)' : (s2.online && tl4.online ? 'var(--accent-cyan)' : 'var(--accent-rose)'),
+                color: isTl4Overloaded ? 'var(--accent-amber)' : (s2.online && tl4.online ? 'var(--accent-emerald)' : 'var(--accent-rose)'),
                 active: isLineActiveForInspection('TL4'),
                 label: !tl4.online ? 'TL4: TRIPPED (0MW)' : `TL4: ${tl4.load_mw}/${tl4.capacity_mw}MW${isTl4Overloaded ? ' ⚠' : ''}`,
                 labelX: 552,
@@ -328,7 +349,7 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
                 id: 'B1-S2',
                 d: 'M 460 365 L 460 295',
                 online: battery.online && s2.online,
-                color: 'var(--accent-purple)',
+                color: 'var(--brand-mind)',
                 active: isLineActiveForInspection('B1-S2'),
               },
               // S3 -> Hospital
@@ -360,7 +381,7 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
                 id: 'S3-RESIDENTIAL',
                 d: 'M 705 255 C 745 255, 745 303, 785 303',
                 online: residential.connected && (residential.supplied_mw > 0),
-                color: !isResidentialShed ? 'var(--accent-cyan)' : 'var(--accent-amber)',
+                color: !isResidentialShed ? 'var(--accent-emerald)' : 'var(--accent-amber)',
                 active: isLineActiveForInspection('S3-RESIDENTIAL'),
               },
               // S3 -> Factory (Load Shed Target)
@@ -368,7 +389,7 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
                 id: 'S3-FACTORY',
                 d: 'M 705 265 C 745 265, 745 381, 785 381',
                 online: factory.connected && (factory.supplied_mw > 0),
-                color: !isFactoryShed ? 'var(--accent-cyan)' : 'var(--accent-amber)',
+                color: !isFactoryShed ? 'var(--accent-emerald)' : 'var(--accent-amber)',
                 active: isLineActiveForInspection('S3-FACTORY'),
               },
             ];
