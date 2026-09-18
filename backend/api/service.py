@@ -138,11 +138,13 @@ class GridMindService:
         elif "DEMAND" in event_type_upper or event_type.lower() == "demand":
             # Demand spike
             spike_mw = float(params.get("spike_mw", 25))
+            target_ids = {target, "RESIDENTIAL_ZONE", "RESIDENTIAL_1"} if target else {"RESIDENTIAL_ZONE"}
             for l in self.simulator.loads:
-                if l.id == "RESIDENTIAL_1":
+                if l.id in target_ids:
                     l.demand_mw += spike_mw
                     if l.connected:
                         l.supplied_mw += spike_mw
+                    break
             self.simulator.failures.append(f"Demand Spike: +{spike_mw}MW sudden load surge")
             msg = f"Chaos Injected: Peak demand surge of +{spike_mw}MW on residential grid."
         elif "LINE" in event_type_upper or "TRANSMISSION" in event_type_upper:

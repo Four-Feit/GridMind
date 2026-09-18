@@ -38,7 +38,7 @@ export const ChaosControlPanel = ({ onInjectChaos, isLoading, onStep, onStart, m
       title: 'Peak Demand Spike',
       desc: 'Sudden +25MW surge on Residential sector, testing grid balance.',
       type: 'DEMAND_SPIKE',
-      target: 'RESIDENTIAL_1',
+      target: 'RESIDENTIAL_ZONE',
       params: { spike_mw: 25 },
       accent: 'var(--accent-cyan)',
       icon: <IconZap size={16} />
