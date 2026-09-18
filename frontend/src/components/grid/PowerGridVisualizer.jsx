@@ -61,6 +61,11 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
   const isResidentialShed = !residential.connected || (residential.supplied_mw || 0) === 0;
   const isFactoryShed = !factory.connected || (factory.supplied_mw || 0) === 0;
 
+  // S2 Degraded / Bypass state: S2 is tripped offline, but downstream loads are receiving power
+  const isDownstreamSupplied = (hospital.supplied_mw > 0) || (waterPlant.supplied_mw > 0) || (emergency.supplied_mw > 0);
+  const isS2Degraded = !s2.online && isDownstreamSupplied;
+  const isS2Faulted = !s2.online && !isDownstreamSupplied;
+
   // Active inspected entity
   const inspectedId = selectedNodeId || hoveredNodeId;
 
@@ -92,7 +97,15 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
     if (id === 'G1') return { title: 'Conventional Generator (G1)', type: 'Generation Source', status: g1.online ? 'Online' : 'Offline', stat: `${g1.available_mw} / ${g1.capacity_mw} MW`, note: 'Primary thermal dispatch generator' };
     if (id === 'G2_SOLAR' || id === 'G2') return { title: 'Solar Array (G2)', type: 'Renewable Generation', status: g2.online ? 'Online' : 'Offline', stat: `${g2.available_mw} / ${g2.capacity_mw} MW`, note: 'Subject to weather fluctuation chaos' };
     if (id === 'S1') return { title: 'Substation S1', type: 'Primary Generation Bus', status: s1.online ? 'Online' : 'Tripped', stat: 'Bus Voltage: 230kV', note: 'Aggregates generator output to transmission grid' };
-    if (id === 'S2') return { title: 'Substation S2', type: 'Transmission Switching Hub', status: s2.online ? 'Online' : 'OFFLINE (FAULT)', stat: `TL1 Load: ${tl1.load_mw}MW`, note: s2.online ? 'Normal routing through TL1 & TL4' : 'Outage causing critical load disconnection' };
+    if (id === 'S2') {
+      if (s2.online) {
+        return { title: 'Substation S2', type: 'Transmission Switching Hub', status: 'Online', stat: `TL1 Load: ${tl1.load_mw}MW`, note: 'Normal routing through TL1 & TL4' };
+      } else if (isS2Degraded) {
+        return { title: 'Substation S2 (Degraded)', type: 'Emergency Bypass Mode', status: 'DEGRADED / RUNNING LOW', stat: `Bypass Flow: ${tl4.load_mw || 70}MW`, note: 'Operating under emergency bypass routing; critical loads protected' };
+      } else {
+        return { title: 'Substation S2', type: 'Transmission Switching Hub', status: 'OFFLINE (FAULT)', stat: `TL1 Load: ${tl1.load_mw}MW`, note: 'Outage causing critical load disconnection' };
+      }
+    }
     if (id === 'B1') return { title: 'B1 Battery Storage', type: 'Grid Energy Storage', status: battery.online ? 'Online' : 'Offline', stat: `${battery.remaining_mwh} / ${battery.capacity_mwh} MWh`, note: `Max output capacity: ${battery.max_output_mw} MW` };
     if (id === 'S3') return { title: 'Substation S3', type: 'Distribution Feed Hub', status: s3.online ? 'Online' : 'Offline', stat: `Fed via TL4 (${tl4.load_mw}MW)`, note: 'Feeds hospital, water plant, emergency services, residential & industrial loads' };
     if (id === 'HOSPITAL') return { title: 'Metropolitan Hospital', type: 'Critical Priority Load', status: isHospitalDistressed ? 'DEFICIT / OUTAGE' : 'Protected', stat: `${hospital.supplied_mw} / ${hospital.demand_mw} MW`, note: 'Non-sheddable high-priority emergency facility' };
@@ -165,7 +178,7 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--accent-amber)' }} />
-              <span>Overloaded</span>
+              <span>Overloaded / Degraded</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--accent-rose)' }} />
@@ -208,24 +221,37 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '8px 14px', borderRadius: 'var(--radius-sm)',
-          backgroundColor: 'var(--accent-rose-dim)', border: '1px solid var(--accent-rose)',
-          fontSize: '0.78rem', color: 'var(--accent-rose)',
+          backgroundColor: isS2Degraded && !isHospitalDistressed ? 'var(--accent-amber-dim)' : 'var(--accent-rose-dim)',
+          border: `1px solid ${isS2Degraded && !isHospitalDistressed ? 'var(--accent-amber)' : 'var(--accent-rose)'}`,
+          fontSize: '0.78rem',
+          color: isS2Degraded && !isHospitalDistressed ? 'var(--accent-amber)' : 'var(--accent-rose)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <IconAlertTriangle size={15} color="var(--accent-rose)" />
-            <span style={{ fontWeight: 700 }}>Grid Fault Event:</span>
+            <IconAlertTriangle size={15} color={isS2Degraded && !isHospitalDistressed ? 'var(--accent-amber)' : 'var(--accent-rose)'} />
+            <span style={{ fontWeight: 700 }}>
+              {isS2Degraded && !isHospitalDistressed ? 'Grid Degraded Event:' : 'Grid Fault Event:'}
+            </span>
             <span>
-              {failures.length > 0 ? failures.join(' • ') : 'Substation disturbance detected'}
+              {isS2Degraded && !isHospitalDistressed
+                ? 'Substation S2 offline • Emergency Bypass active (Running Low / Critical Loads Protected)'
+                : (failures.length > 0 ? failures.join(' • ') : 'Substation disturbance detected')}
             </span>
           </div>
-          {isHospitalDistressed && (
+          {isHospitalDistressed ? (
             <span style={{
               fontWeight: 700, padding: '2px 8px', borderRadius: 4,
               backgroundColor: 'var(--accent-rose)', color: '#ffffff', fontSize: '0.7rem'
             }}>
               CRITICAL LOAD AT RISK
             </span>
-          )}
+          ) : isS2Degraded ? (
+            <span style={{
+              fontWeight: 700, padding: '2px 8px', borderRadius: 4,
+              backgroundColor: 'var(--accent-amber)', color: '#ffffff', fontSize: '0.7rem'
+            }}>
+              DEGRADED BYPASS ACTIVE
+            </span>
+          ) : null}
         </div>
       )}
 
@@ -304,10 +330,10 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
               {
                 id: 'TL1',
                 d: 'M 335 245 L 400 245',
-                online: tl1.online && s1.online && s2.online,
-                color: tl1.online && s2.online ? 'var(--accent-cyan)' : 'var(--accent-rose)',
+                online: tl1.online && s1.online && (s2.online || isS2Degraded),
+                color: isS2Degraded ? 'var(--accent-amber)' : (tl1.online && s2.online ? 'var(--accent-cyan)' : 'var(--accent-rose)'),
                 active: isLineActiveForInspection('TL1'),
-                label: `TL1: ${tl1.load_mw}/${tl1.capacity_mw}MW`,
+                label: isS2Degraded ? `TL1: BYPASS (${tl1.load_mw || 70}MW)` : `TL1: ${tl1.load_mw}/${tl1.capacity_mw}MW`,
                 labelX: 367,
                 labelY: 235,
               },
@@ -315,11 +341,11 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
               {
                 id: 'TL4',
                 d: 'M 520 245 L 585 245',
-                online: tl4.online && s2.online && s3.online,
-                overloaded: isTl4Overloaded,
-                color: isTl4Overloaded ? 'var(--accent-amber)' : (s2.online && tl4.online ? 'var(--accent-cyan)' : 'var(--accent-rose)'),
+                online: tl4.online && (s2.online || isS2Degraded) && s3.online,
+                overloaded: isTl4Overloaded || isS2Degraded,
+                color: isS2Degraded || isTl4Overloaded ? 'var(--accent-amber)' : (s2.online && tl4.online ? 'var(--accent-cyan)' : 'var(--accent-rose)'),
                 active: isLineActiveForInspection('TL4'),
-                label: !tl4.online ? 'TL4: TRIPPED (0MW)' : `TL4: ${tl4.load_mw}/${tl4.capacity_mw}MW${isTl4Overloaded ? ' ⚠' : ''}`,
+                label: !tl4.online ? 'TL4: TRIPPED (0MW)' : (isS2Degraded ? `TL4: BYPASS (${tl4.load_mw || 70}MW)` : `TL4: ${tl4.load_mw}/${tl4.capacity_mw}MW${isTl4Overloaded ? ' ⚠' : ''}`),
                 labelX: 552,
                 labelY: 235,
               },
@@ -327,7 +353,7 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
               {
                 id: 'B1-S2',
                 d: 'M 460 365 L 460 295',
-                online: battery.online && s2.online,
+                online: battery.online && (s2.online || isS2Degraded),
                 color: 'var(--accent-purple)',
                 active: isLineActiveForInspection('B1-S2'),
               },
@@ -515,7 +541,15 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
           {(() => {
             const isHovered = hoveredNodeId === 'S2';
             const isSelected = selectedNodeId === 'S2';
-            const isFaulted = !s2.online;
+            const isFaulted = isS2Faulted;
+            const isDegraded = isS2Degraded;
+            const s2Color = isFaulted ? 'var(--accent-rose)' : (isDegraded ? 'var(--accent-amber)' : (isSelected ? 'var(--accent-cyan)' : (isHovered ? 'var(--accent-cyan)' : 'var(--border-card)')));
+            const s2Bg = isFaulted ? 'var(--accent-rose-dim)' : (isDegraded ? 'var(--accent-amber-dim)' : 'var(--bg-card)');
+            const s2Dot = isFaulted ? 'var(--accent-rose)' : (isDegraded ? 'var(--accent-amber)' : 'var(--accent-emerald)');
+            const s2TitleColor = isFaulted ? 'var(--accent-rose)' : (isDegraded ? 'var(--accent-amber)' : 'var(--text-primary)');
+            const s2SubColor = isFaulted ? 'var(--accent-rose)' : (isDegraded ? 'var(--accent-amber)' : 'var(--text-muted)');
+            const s2ValColor = isFaulted ? 'var(--accent-rose)' : (isDegraded ? 'var(--accent-amber)' : 'var(--accent-cyan)');
+
             return (
               <g
                 transform="translate(400, 205)"
@@ -524,30 +558,32 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
                 onMouseLeave={() => setHoveredNodeId(null)}
                 onClick={(e) => { e.stopPropagation(); handleNodeClick('S2', s2, 'Substation'); }}
               >
-                {/* Fault aura if offline */}
-                {isFaulted && (
+                {/* Fault or Degraded aura */}
+                {(isFaulted || isDegraded) && (
                   <rect
                     x="-4" y="-4" width="128" height="88" rx="12"
-                    fill="none" stroke="var(--accent-rose)" strokeWidth="2"
+                    fill="none"
+                    stroke={isFaulted ? 'var(--accent-rose)' : 'var(--accent-amber)'}
+                    strokeWidth="2"
                     className="animate-fault"
                   />
                 )}
                 <rect
                   width="120" height="80" rx="8"
-                  fill={isFaulted ? 'var(--accent-rose-dim)' : 'var(--bg-card)'}
-                  stroke={isFaulted ? 'var(--accent-rose)' : (isSelected ? 'var(--accent-cyan)' : (isHovered ? 'var(--accent-cyan)' : 'var(--border-card)'))}
-                  strokeWidth={isSelected || isFaulted ? '2.5' : '1.5'}
+                  fill={s2Bg}
+                  stroke={s2Color}
+                  strokeWidth={isSelected || isFaulted || isDegraded ? '2.5' : '1.5'}
                   filter={isHovered || isSelected ? 'drop-shadow(0 4px 10px rgba(2,132,199,0.2))' : 'none'}
                 />
-                <circle cx="16" cy="18" r="5" fill={isFaulted ? 'var(--accent-rose)' : 'var(--accent-emerald)'} />
-                <text x="28" y="21" fill={isFaulted ? 'var(--accent-rose)' : 'var(--text-primary)'} fontSize="12" fontWeight="700">
+                <circle cx="16" cy="18" r="5" fill={s2Dot} />
+                <text x="28" y="21" fill={s2TitleColor} fontSize="12" fontWeight="700">
                   Substation S2
                 </text>
-                <text x="14" y="42" fill={isFaulted ? 'var(--accent-rose)' : 'var(--text-muted)'} fontSize="9.5" fontWeight={isFaulted ? 600 : 400}>
-                  {isFaulted ? 'FAULT: Offline' : 'Transmission Hub'}
+                <text x="14" y="42" fill={s2SubColor} fontSize="9.5" fontWeight={isFaulted || isDegraded ? 600 : 400}>
+                  {isFaulted ? 'FAULT: Offline' : (isDegraded ? 'DEGRADED: Running Low' : 'Transmission Hub')}
                 </text>
-                <text x="14" y="64" fill={isFaulted ? 'var(--accent-rose)' : 'var(--accent-cyan)'} fontSize="10" fontFamily="var(--font-mono)" fontWeight="600">
-                  {isFaulted ? 'OUTAGE DETECTED' : 'TL1 ➔ TL4 Flow'}
+                <text x="14" y="64" fill={s2ValColor} fontSize="10" fontFamily="var(--font-mono)" fontWeight="600">
+                  {isFaulted ? 'OUTAGE DETECTED' : (isDegraded ? 'EMERGENCY BYPASS' : 'TL1 ➔ TL4 Flow')}
                 </text>
               </g>
             );
