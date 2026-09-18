@@ -4,53 +4,146 @@ import {
   IconCheckCircle,
   IconRotateCcw,
   IconChevronDown,
-  IconChevronRight
+  IconChevronRight,
+  IconAlertTriangle,
+  IconZap
 } from '../ui/Icons';
 
 export const AgentBrainPanel = ({ agentState, events }) => {
-  const [expandedSection, setExpandedSection] = useState('plan');
+  // Extract all distinct plan IDs from events in ascending order
+  const planIds = Array.from(
+    new Set(
+      events
+        .filter((e) => e.plan_id !== undefined && e.plan_id !== null && e.plan_id > 0)
+        .map((e) => e.plan_id)
+    )
+  ).sort((a, b) => a - b);
 
-  // Extract recent key events for each stage of the brain loop
-  const latestObservation = [...events].reverse().find((e) => e.type === 'OBSERVATION');
-  const latestPlan = [...events].reverse().find((e) => e.type === 'PLAN_CREATED');
-  const latestToolResult = [...events].reverse().find((e) => ['TOOL_SUCCESS', 'TOOL_FAILED'].includes(e.type));
-  const latestValidation = [...events].reverse().find((e) => ['VALIDATION_PASSED', 'VALIDATION_FAILED', 'MISSION_COMPLETED'].includes(e.type));
+  const latestPlanId = planIds.length > 0 ? planIds[planIds.length - 1] : (agentState?.mission?.plan_id || 1);
+  const [selectedPlanId, setSelectedPlanId] = useState(null);
+  const activePlanId = selectedPlanId !== null && planIds.includes(selectedPlanId) ? selectedPlanId : latestPlanId;
+
+  // Filter events for the currently viewed plan ID (fallback to latest events)
+  const planEvents = events.filter((e) => e.plan_id === activePlanId);
+  const eventPool = planEvents.length > 0 ? planEvents : events;
+
+  const currentObservation = [...eventPool].reverse().find((e) => e.type === 'OBSERVATION')
+    || [...events].reverse().find((e) => e.type === 'OBSERVATION');
+
+  const currentPlan = [...eventPool].reverse().find((e) => e.type === 'PLAN_CREATED')
+    || [...events].reverse().find((e) => e.type === 'PLAN_CREATED');
+
+  const currentToolResult = [...eventPool].reverse().find((e) => ['TOOL_SUCCESS', 'TOOL_FAILED'].includes(e.type))
+    || [...events].reverse().find((e) => ['TOOL_SUCCESS', 'TOOL_FAILED'].includes(e.type));
+
+  const currentReplan = [...eventPool].reverse().find((e) => ['PLAN_INVALIDATED', 'TOOL_FAILED'].includes(e.type))
+    || [...events].reverse().find((e) => ['PLAN_INVALIDATED', 'TOOL_FAILED'].includes(e.type));
+
+  const currentValidation = [...eventPool].reverse().find((e) => ['VALIDATION_PASSED', 'VALIDATION_FAILED', 'MISSION_COMPLETED'].includes(e.type))
+    || [...events].reverse().find((e) => ['VALIDATION_PASSED', 'VALIDATION_FAILED', 'MISSION_COMPLETED'].includes(e.type));
+
+  // Multi-accordion state: all active steps open by default
+  const [expandedSections, setExpandedSections] = useState({
+    observation: false,
+    plan: true,
+    result: true,
+    replan: true,
+    validation: true,
+  });
 
   const toggleSection = (section) => {
-    setExpandedSection(expandedSection === section ? null : section);
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
   };
 
   const mission = agentState?.mission || {};
 
+  // Compute status pill for the viewed plan
+  const getPlanStatus = () => {
+    if (currentToolResult?.type === 'TOOL_FAILED' || currentReplan) {
+      return { label: 'REPLANNED', bg: 'var(--accent-amber-dim)', color: 'var(--accent-amber)' };
+    }
+    if (currentValidation?.type === 'VALIDATION_PASSED' || currentValidation?.type === 'MISSION_COMPLETED') {
+      return { label: 'VERIFIED PASSED', bg: 'var(--accent-emerald-dim)', color: 'var(--accent-emerald)' };
+    }
+    if (currentToolResult?.type === 'TOOL_SUCCESS') {
+      return { label: 'EXECUTED', bg: 'var(--accent-cyan-dim)', color: 'var(--accent-cyan)' };
+    }
+    if (currentPlan) {
+      return { label: 'FORMULATED', bg: 'var(--accent-purple-dim)', color: 'var(--accent-purple)' };
+    }
+    return { label: 'IDLE', bg: 'var(--bg-tertiary)', color: 'var(--text-muted)' };
+  };
+
+  const planStatus = getPlanStatus();
+
   return (
-    <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
       {/* Brain Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{
-            width: '28px',
-            height: '28px',
-            borderRadius: '6px',
-            backgroundColor: 'var(--accent-purple-dim)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
+      <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '6px',
+              backgroundColor: 'var(--accent-purple-dim)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <IconBrain size={16} color="var(--accent-purple)" />
+            </div>
+            <div>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>Agent Brain</h3>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Autonomous Reasoning Engine</span>
+            </div>
+          </div>
+
+          <span className="badge" style={{
+            backgroundColor: planStatus.bg,
+            color: planStatus.color,
+            border: `1px solid ${planStatus.color}`
           }}>
-            <IconBrain size={16} color="var(--accent-purple)" />
-          </div>
-          <div>
-            <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>Agent Brain</h3>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Autonomous Reasoning Engine</span>
-          </div>
+            {planStatus.label}
+          </span>
         </div>
 
-        <span className="badge" style={{
-          backgroundColor: 'var(--accent-purple-dim)',
-          color: 'var(--accent-purple)',
-          border: '1px solid var(--accent-purple)'
-        }}>
-          Plan #{mission.plan_id || 0}
-        </span>
+        {/* Plan History Selector Pills */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px' }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>
+            Active Cycle:
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+            {planIds.length > 0 ? (
+              planIds.map((pid) => (
+                <button
+                  key={pid}
+                  onClick={() => setSelectedPlanId(pid)}
+                  style={{
+                    padding: '3px 9px',
+                    borderRadius: '4px',
+                    fontSize: '0.72rem',
+                    fontWeight: pid === activePlanId ? 700 : 500,
+                    backgroundColor: pid === activePlanId ? 'var(--accent-purple)' : 'var(--bg-secondary)',
+                    color: pid === activePlanId ? '#ffffff' : 'var(--text-secondary)',
+                    border: pid === activePlanId ? '1px solid var(--accent-purple)' : '1px solid var(--border-color)',
+                    cursor: 'pointer',
+                    transition: 'all var(--transition-fast)'
+                  }}
+                >
+                  Plan #{pid}
+                </button>
+              ))
+            ) : (
+              <span className="badge" style={{ backgroundColor: 'var(--accent-purple-dim)', color: 'var(--accent-purple)', border: '1px solid var(--accent-purple)' }}>
+                Plan #{mission.plan_id || 1}
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Stage 1: Observation */}
@@ -63,14 +156,14 @@ export const AgentBrainPanel = ({ agentState, events }) => {
             <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--accent-cyan)' }} />
             <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>1. Observation</span>
           </div>
-          {expandedSection === 'observation' ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+          {expandedSections.observation ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
         </div>
-        {expandedSection === 'observation' && (
+        {expandedSections.observation && (
           <div style={{ padding: '12px 14px', borderTop: '1px solid var(--border-subtle)', fontSize: '0.78rem' }}>
-            {latestObservation ? (
+            {currentObservation ? (
               <div>
-                <p style={{ color: 'var(--text-primary)', marginBottom: '8px' }}>{latestObservation.message}</p>
-                {latestObservation.data && (
+                <p style={{ color: 'var(--text-primary)', marginBottom: '8px' }}>{currentObservation.message}</p>
+                {currentObservation.data && (
                   <pre style={{
                     padding: '8px',
                     borderRadius: '4px',
@@ -79,12 +172,12 @@ export const AgentBrainPanel = ({ agentState, events }) => {
                     fontSize: '0.7rem',
                     overflowX: 'auto'
                   }}>
-                    {JSON.stringify(latestObservation.data, null, 2)}
+                    {JSON.stringify(currentObservation.data, null, 2)}
                   </pre>
                 )}
               </div>
             ) : (
-              <span style={{ color: 'var(--text-muted)' }}>Awaiting initial environment telemetry...</span>
+              <span style={{ color: 'var(--text-muted)' }}>Awaiting environment telemetry...</span>
             )}
           </div>
         )}
@@ -100,22 +193,22 @@ export const AgentBrainPanel = ({ agentState, events }) => {
             <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--accent-purple)' }} />
             <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>2. Current Plan</span>
           </div>
-          {expandedSection === 'plan' ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+          {expandedSections.plan ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
         </div>
-        {expandedSection === 'plan' && (
+        {expandedSections.plan && (
           <div style={{ padding: '12px 14px', borderTop: '1px solid var(--border-subtle)', fontSize: '0.78rem' }}>
-            {latestPlan ? (
+            {currentPlan ? (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
                   <span style={{ fontWeight: 600, color: 'var(--text-muted)' }}>Tool Target:</span>
                   <span className="font-mono" style={{ color: 'var(--accent-purple)', fontWeight: 700 }}>
-                    {latestPlan.tool || latestPlan.data?.action}
+                    {currentPlan.tool || currentPlan.data?.action}
                   </span>
                 </div>
                 <div style={{ color: 'var(--text-secondary)', marginBottom: '8px', lineHeight: 1.4 }}>
-                  {latestPlan.data?.reason || latestPlan.message}
+                  {currentPlan.data?.reason || currentPlan.message}
                 </div>
-                {latestPlan.data?.arguments && (
+                {currentPlan.data?.arguments && (
                   <pre style={{
                     padding: '8px',
                     borderRadius: '4px',
@@ -124,7 +217,7 @@ export const AgentBrainPanel = ({ agentState, events }) => {
                     fontSize: '0.7rem',
                     overflowX: 'auto'
                   }}>
-                    {JSON.stringify(latestPlan.data.arguments, null, 2)}
+                    {JSON.stringify(currentPlan.data.arguments, null, 2)}
                   </pre>
                 )}
               </div>
@@ -146,18 +239,18 @@ export const AgentBrainPanel = ({ agentState, events }) => {
               width: '8px',
               height: '8px',
               borderRadius: '50%',
-              backgroundColor: latestToolResult?.type === 'TOOL_FAILED' ? 'var(--accent-rose)' : 'var(--accent-emerald)'
+              backgroundColor: currentToolResult?.type === 'TOOL_FAILED' ? 'var(--accent-rose)' : 'var(--accent-emerald)'
             }} />
             <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>3. Tool Outcome</span>
           </div>
-          {expandedSection === 'result' ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+          {expandedSections.result ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
         </div>
-        {expandedSection === 'result' && (
+        {expandedSections.result && (
           <div style={{ padding: '12px 14px', borderTop: '1px solid var(--border-subtle)', fontSize: '0.78rem' }}>
-            {latestToolResult ? (
+            {currentToolResult ? (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                  {latestToolResult.type === 'TOOL_FAILED' ? (
+                  {currentToolResult.type === 'TOOL_FAILED' ? (
                     <span className="badge" style={{ backgroundColor: 'var(--accent-rose-dim)', color: 'var(--accent-rose)', border: '1px solid var(--accent-rose)' }}>
                       FAILURE DETECTED
                     </span>
@@ -167,22 +260,22 @@ export const AgentBrainPanel = ({ agentState, events }) => {
                     </span>
                   )}
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    {latestToolResult.tool}
+                    {currentToolResult.tool}
                   </span>
                 </div>
                 <p style={{ color: 'var(--text-primary)', marginBottom: '8px' }}>
-                  {latestToolResult.message}
+                  {currentToolResult.message}
                 </p>
-                {latestToolResult.data && (
+                {currentToolResult.data && (
                   <pre style={{
                     padding: '8px',
                     borderRadius: '4px',
                     backgroundColor: 'var(--bg-tertiary)',
-                    color: latestToolResult.type === 'TOOL_FAILED' ? 'var(--accent-rose)' : 'var(--accent-emerald)',
+                    color: currentToolResult.type === 'TOOL_FAILED' ? 'var(--accent-rose)' : 'var(--accent-emerald)',
                     fontSize: '0.7rem',
                     overflowX: 'auto'
                   }}>
-                    {JSON.stringify(latestToolResult.data, null, 2)}
+                    {JSON.stringify(currentToolResult.data, null, 2)}
                   </pre>
                 )}
               </div>
@@ -203,10 +296,24 @@ export const AgentBrainPanel = ({ agentState, events }) => {
             <IconRotateCcw size={14} color="var(--accent-amber)" />
             <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>4. Recovery & Constraints</span>
           </div>
-          {expandedSection === 'replan' ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+          {expandedSections.replan ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
         </div>
-        {expandedSection === 'replan' && (
+        {expandedSections.replan && (
           <div style={{ padding: '12px 14px', borderTop: '1px solid var(--border-subtle)', fontSize: '0.78rem' }}>
+            {currentReplan && (
+              <div style={{
+                padding: '8px 12px',
+                borderRadius: '4px',
+                backgroundColor: 'var(--accent-amber-dim)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                color: 'var(--accent-amber)',
+                marginBottom: '10px',
+                fontSize: '0.75rem'
+              }}>
+                <strong>Dynamic Replan Triggered:</strong> {currentReplan.message}
+              </div>
+            )}
+
             {mission.previous_failures && mission.previous_failures.length > 0 ? (
               <div style={{ marginBottom: '10px' }}>
                 <div style={{ fontWeight: 600, color: 'var(--accent-rose)', marginBottom: '4px' }}>Recorded Failures in Memory:</div>
@@ -227,7 +334,7 @@ export const AgentBrainPanel = ({ agentState, events }) => {
                   ))}
                 </ul>
               </div>
-            ) : (
+            ) : !currentReplan && (
               <span style={{ color: 'var(--text-muted)' }}>No constraint violations recorded.</span>
             )}
           </div>
@@ -244,15 +351,15 @@ export const AgentBrainPanel = ({ agentState, events }) => {
             <IconCheckCircle size={14} color="var(--accent-emerald)" />
             <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>5. Mission Validation</span>
           </div>
-          {expandedSection === 'validation' ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+          {expandedSections.validation ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
         </div>
-        {expandedSection === 'validation' && (
+        {expandedSections.validation && (
           <div style={{ padding: '12px 14px', borderTop: '1px solid var(--border-subtle)', fontSize: '0.78rem' }}>
-            {latestValidation ? (
+            {currentValidation ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <IconCheckCircle size={18} color="var(--accent-emerald)" />
                 <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
-                  {latestValidation.message}
+                  {currentValidation.message}
                 </span>
               </div>
             ) : (
