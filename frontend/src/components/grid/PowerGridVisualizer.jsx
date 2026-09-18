@@ -50,12 +50,16 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
 
   const hospital = loads.find((l) => l.id === 'HOSPITAL') || { id: 'HOSPITAL', demand_mw: 30, supplied_mw: 30, connected: true, priority: 'critical' };
   const waterPlant = loads.find((l) => l.id === 'WATER_PLANT') || { id: 'WATER_PLANT', demand_mw: 25, supplied_mw: 25, connected: true, priority: 'critical' };
+  const emergency = loads.find((l) => l.id === 'EMERGENCY_SERVICES') || { id: 'EMERGENCY_SERVICES', demand_mw: 15, supplied_mw: 15, connected: true, priority: 'critical' };
   const residential = loads.find((l) => l.id === 'RESIDENTIAL_ZONE' || l.id === 'RESIDENTIAL_1') || { id: 'RESIDENTIAL', demand_mw: 40, supplied_mw: 40, connected: true, priority: 'normal' };
   const factory = loads.find((l) => l.id === 'FACTORY') || { id: 'FACTORY', demand_mw: 40, supplied_mw: 40, connected: true, priority: 'normal' };
 
-  // Hospital outage check (cause -> effect connection)
-  const isHospitalDistressed = !hospital.connected || (hospital.supplied_mw || 0) < (hospital.demand_mw || 30) || !s2.online || !tl4.online;
-
+  // Dynamic Outage & Distress checks based on actual power supplied to each load
+  const isHospitalDistressed = !hospital.connected || (hospital.supplied_mw || 0) < (hospital.demand_mw || 30);
+  const isWaterDistressed = !waterPlant.connected || (waterPlant.supplied_mw || 0) < (waterPlant.demand_mw || 25);
+  const isEmergencyDistressed = !emergency.connected || (emergency.supplied_mw || 0) < (emergency.demand_mw || 15);
+  const isResidentialShed = !residential.connected || (residential.supplied_mw || 0) === 0;
+  const isFactoryShed = !factory.connected || (factory.supplied_mw || 0) === 0;
 
   // Active inspected entity
   const inspectedId = selectedNodeId || hoveredNodeId;
@@ -68,9 +72,10 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
     'S1': ['G1-S1', 'G2-S1', 'TL1'],
     'S2': ['TL1', 'TL4', 'B1-S2'],
     'B1': ['B1-S2'],
-    'S3': ['TL4', 'S3-HOSPITAL', 'S3-WATER', 'S3-RESIDENTIAL', 'S3-FACTORY'],
+    'S3': ['TL4', 'S3-HOSPITAL', 'S3-WATER', 'S3-EMERGENCY', 'S3-RESIDENTIAL', 'S3-FACTORY'],
     'HOSPITAL': ['S3-HOSPITAL'],
     'WATER_PLANT': ['S3-WATER'],
+    'EMERGENCY_SERVICES': ['S3-EMERGENCY'],
     'RESIDENTIAL_ZONE': ['S3-RESIDENTIAL'],
     'RESIDENTIAL': ['S3-RESIDENTIAL'],
     'FACTORY': ['S3-FACTORY'],
@@ -89,11 +94,12 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
     if (id === 'S1') return { title: 'Substation S1', type: 'Primary Generation Bus', status: s1.online ? 'Online' : 'Tripped', stat: 'Bus Voltage: 230kV', note: 'Aggregates generator output to transmission grid' };
     if (id === 'S2') return { title: 'Substation S2', type: 'Transmission Switching Hub', status: s2.online ? 'Online' : 'OFFLINE (FAULT)', stat: `TL1 Load: ${tl1.load_mw}MW`, note: s2.online ? 'Normal routing through TL1 & TL4' : 'Outage causing critical load disconnection' };
     if (id === 'B1') return { title: 'B1 Battery Storage', type: 'Grid Energy Storage', status: battery.online ? 'Online' : 'Offline', stat: `${battery.remaining_mwh} / ${battery.capacity_mwh} MWh`, note: `Max output capacity: ${battery.max_output_mw} MW` };
-    if (id === 'S3') return { title: 'Substation S3', type: 'Distribution Feed Hub', status: s3.online ? 'Online' : 'Offline', stat: `Fed via TL4 (${tl4.load_mw}MW)`, note: 'Feeds hospital, municipal water, residential & industrial loads' };
+    if (id === 'S3') return { title: 'Substation S3', type: 'Distribution Feed Hub', status: s3.online ? 'Online' : 'Offline', stat: `Fed via TL4 (${tl4.load_mw}MW)`, note: 'Feeds hospital, water plant, emergency services, residential & industrial loads' };
     if (id === 'HOSPITAL') return { title: 'Metropolitan Hospital', type: 'Critical Priority Load', status: isHospitalDistressed ? 'DEFICIT / OUTAGE' : 'Protected', stat: `${hospital.supplied_mw} / ${hospital.demand_mw} MW`, note: 'Non-sheddable high-priority emergency facility' };
-    if (id === 'WATER_PLANT') return { title: 'Municipal Water Plant', type: 'Critical Priority Load', status: waterPlant.connected ? 'Supplied' : 'Interrupted', stat: `${waterPlant.supplied_mw} / ${waterPlant.demand_mw} MW`, note: 'Critical municipal water treatment & pumping' };
-    if (id === 'RESIDENTIAL' || id === 'RESIDENTIAL_ZONE') return { title: 'Residential Zone', type: 'Standard Priority Load', status: residential.connected ? 'Supplied' : 'Shed', stat: `${residential.supplied_mw} / ${residential.demand_mw} MW`, note: 'Urban residential feeder' };
-    if (id === 'FACTORY') return { title: 'Industrial Factory', type: 'Normal Priority Load', status: factory.connected ? 'Connected' : 'LOAD SHED', stat: `${factory.supplied_mw} / ${factory.demand_mw} MW`, note: factory.connected ? 'Standard manufacturing demand' : 'Shed to protect critical facilities' };
+    if (id === 'WATER_PLANT') return { title: 'Municipal Water Plant', type: 'Critical Priority Load', status: isWaterDistressed ? 'DEFICIT / OUTAGE' : 'Protected', stat: `${waterPlant.supplied_mw} / ${waterPlant.demand_mw} MW`, note: 'Critical municipal water treatment & pumping' };
+    if (id === 'EMERGENCY_SERVICES') return { title: 'Emergency Services Node', type: 'Critical Priority Load', status: isEmergencyDistressed ? 'DEFICIT / OUTAGE' : 'Protected', stat: `${emergency.supplied_mw} / ${emergency.demand_mw} MW`, note: 'First responders, 911 dispatch & communication towers' };
+    if (id === 'RESIDENTIAL' || id === 'RESIDENTIAL_ZONE') return { title: 'Residential Zone', type: 'Standard Priority Load', status: isResidentialShed ? 'LOAD SHED' : 'Supplied', stat: `${residential.supplied_mw} / ${residential.demand_mw} MW`, note: 'Urban residential feeder' };
+    if (id === 'FACTORY') return { title: 'Industrial Factory', type: 'Normal Priority Load', status: isFactoryShed ? 'LOAD SHED' : 'Connected', stat: `${factory.supplied_mw} / ${factory.demand_mw} MW`, note: isFactoryShed ? 'Shed to protect critical facilities' : 'Standard manufacturing demand' };
     return null;
   };
 
@@ -328,36 +334,43 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
               // S3 -> Hospital
               {
                 id: 'S3-HOSPITAL',
-                d: 'M 705 230 C 745 230, 745 100, 785 100',
-                online: hospital.connected && s3.online && s2.online && tl4.online,
-                color: hospital.connected && !isHospitalDistressed && tl4.online ? 'var(--accent-emerald)' : 'var(--accent-rose)',
+                d: 'M 705 225 C 745 225, 745 69, 785 69',
+                online: hospital.connected && (hospital.supplied_mw > 0),
+                color: !isHospitalDistressed ? 'var(--accent-emerald)' : 'var(--accent-rose)',
                 active: isLineActiveForInspection('S3-HOSPITAL'),
               },
               // S3 -> Water Plant
               {
                 id: 'S3-WATER',
-                d: 'M 705 240 C 745 240, 745 195, 785 195',
-                online: waterPlant.connected && s3.online && tl4.online,
-                color: waterPlant.connected && tl4.online ? 'var(--accent-emerald)' : 'var(--accent-rose)',
+                d: 'M 705 235 C 745 235, 745 147, 785 147',
+                online: waterPlant.connected && (waterPlant.supplied_mw > 0),
+                color: !isWaterDistressed ? 'var(--accent-emerald)' : 'var(--accent-rose)',
                 active: isLineActiveForInspection('S3-WATER'),
+              },
+              // S3 -> Emergency Services
+              {
+                id: 'S3-EMERGENCY',
+                d: 'M 705 245 C 745 245, 745 225, 785 225',
+                online: emergency.connected && (emergency.supplied_mw > 0),
+                color: !isEmergencyDistressed ? 'var(--accent-emerald)' : 'var(--accent-rose)',
+                active: isLineActiveForInspection('S3-EMERGENCY'),
               },
               // S3 -> Residential
               {
                 id: 'S3-RESIDENTIAL',
-                d: 'M 705 250 C 745 250, 745 290, 785 290',
-                online: residential.connected && s3.online && tl4.online,
-                color: residential.connected && tl4.online ? 'var(--accent-cyan)' : 'var(--accent-rose)',
+                d: 'M 705 255 C 745 255, 745 303, 785 303',
+                online: residential.connected && (residential.supplied_mw > 0),
+                color: !isResidentialShed ? 'var(--accent-cyan)' : 'var(--accent-amber)',
                 active: isLineActiveForInspection('S3-RESIDENTIAL'),
               },
               // S3 -> Factory (Load Shed Target)
               {
                 id: 'S3-FACTORY',
-                d: 'M 705 260 C 745 260, 745 385, 785 385',
-                online: factory.connected && s3.online && tl4.online,
-                color: factory.connected && tl4.online ? 'var(--accent-cyan)' : 'var(--accent-amber)',
+                d: 'M 705 265 C 745 265, 745 381, 785 381',
+                online: factory.connected && (factory.supplied_mw > 0),
+                color: !isFactoryShed ? 'var(--accent-cyan)' : 'var(--accent-amber)',
                 active: isLineActiveForInspection('S3-FACTORY'),
               },
-
             ];
 
             return linesData.map((l) => {
@@ -576,7 +589,7 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
           {(() => {
             const isHovered = hoveredNodeId === 'S3';
             const isSelected = selectedNodeId === 'S3';
-            const isS3Powered = s3.online && tl4.online;
+            const isS3Powered = s3.online && (tl4.online || hospital.supplied_mw > 0 || waterPlant.supplied_mw > 0 || emergency.supplied_mw > 0);
             return (
               <g
                 transform="translate(585, 205)"
@@ -596,13 +609,13 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
                 <text x="28" y="21" fill="var(--text-primary)" fontSize="12" fontWeight="700">Substation S3</text>
                 <text x="14" y="42" fill="var(--text-muted)" fontSize="9.5">Distribution Bus</text>
                 <text x="14" y="64" fill={isS3Powered ? 'var(--accent-cyan)' : 'var(--accent-rose)'} fontSize="10.5" fontFamily="var(--font-mono)" fontWeight="600">
-                  {isS3Powered ? '4 Feeder Lines' : 'TL4 FEED CUT'}
+                  {isS3Powered ? '5 Feeder Lines' : 'TL4 FEED CUT'}
                 </text>
               </g>
             );
           })()}
 
-          {/* ─── Connected Loads (Zone 4) ─── */}
+          {/* ─── Connected Loads (Zone 4: 5 Active Facilities) ─── */}
 
           {/* 7. Hospital (Critical) */}
           {(() => {
@@ -610,7 +623,7 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
             const isSelected = selectedNodeId === 'HOSPITAL';
             return (
               <g
-                transform="translate(785, 68)"
+                transform="translate(785, 38)"
                 style={{ cursor: 'pointer' }}
                 onMouseEnter={() => setHoveredNodeId('HOSPITAL')}
                 onMouseLeave={() => setHoveredNodeId(null)}
@@ -618,26 +631,26 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
               >
                 {isHospitalDistressed && (
                   <rect
-                    x="-4" y="-4" width="148" height="74" rx="10"
+                    x="-4" y="-4" width="148" height="70" rx="10"
                     fill="none" stroke="var(--accent-rose)" strokeWidth="2"
                     className="animate-fault"
                   />
                 )}
                 <rect
-                  width="140" height="66" rx="8"
+                  width="140" height="62" rx="8"
                   fill={isHospitalDistressed ? 'var(--accent-rose-dim)' : 'var(--bg-card)'}
                   stroke={isHospitalDistressed ? 'var(--accent-rose)' : (isSelected ? 'var(--accent-emerald)' : (isHovered ? 'var(--accent-emerald)' : 'var(--border-card)'))}
                   strokeWidth={isSelected || isHospitalDistressed ? '2.5' : '1.5'}
                   filter={isHovered || isSelected ? 'drop-shadow(0 4px 10px rgba(5,150,105,0.2))' : 'none'}
                 />
-                <circle cx="15" cy="17" r="5" fill={isHospitalDistressed ? 'var(--accent-rose)' : 'var(--accent-emerald)'} />
-                <text x="26" y="20" fill="var(--text-primary)" fontSize="11.5" fontWeight="700">HOSPITAL</text>
-                <rect x="92" y="10" width="40" height="14" rx="3" fill="var(--accent-emerald-dim)" />
-                <text x="112" y="20" fill="var(--accent-emerald)" fontSize="7.5" fontWeight="800" textAnchor="middle">
+                <circle cx="15" cy="16" r="5" fill={isHospitalDistressed ? 'var(--accent-rose)' : 'var(--accent-emerald)'} />
+                <text x="26" y="19" fill="var(--text-primary)" fontSize="11" fontWeight="700">HOSPITAL</text>
+                <rect x="92" y="9" width="40" height="14" rx="3" fill="var(--accent-emerald-dim)" />
+                <text x="112" y="19" fill="var(--accent-emerald)" fontSize="7.5" fontWeight="800" textAnchor="middle">
                   CRITICAL
                 </text>
-                <text x="14" y="38" fill="var(--text-muted)" fontSize="9">Emergency Node</text>
-                <text x="14" y="54" fill={isHospitalDistressed ? 'var(--accent-rose)' : 'var(--accent-emerald)'} fontSize="10.5" fontFamily="var(--font-mono)" fontWeight="700">
+                <text x="14" y="36" fill="var(--text-muted)" fontSize="9">Emergency Medical</text>
+                <text x="14" y="51" fill={isHospitalDistressed ? 'var(--accent-rose)' : 'var(--accent-emerald)'} fontSize="10.5" fontFamily="var(--font-mono)" fontWeight="700">
                   {hospital.supplied_mw} / {hospital.demand_mw} MW
                 </text>
               </g>
@@ -650,71 +663,117 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
             const isSelected = selectedNodeId === 'WATER_PLANT';
             return (
               <g
-                transform="translate(785, 162)"
+                transform="translate(785, 116)"
                 style={{ cursor: 'pointer' }}
                 onMouseEnter={() => setHoveredNodeId('WATER_PLANT')}
                 onMouseLeave={() => setHoveredNodeId(null)}
                 onClick={(e) => { e.stopPropagation(); handleNodeClick('WATER_PLANT', waterPlant, 'Load'); }}
               >
+                {isWaterDistressed && (
+                  <rect
+                    x="-4" y="-4" width="148" height="70" rx="10"
+                    fill="none" stroke="var(--accent-rose)" strokeWidth="2"
+                    className="animate-fault"
+                  />
+                )}
                 <rect
-                  width="140" height="66" rx="8"
-                  fill="var(--bg-card)"
-                  stroke={isSelected ? 'var(--accent-emerald)' : (isHovered ? 'var(--accent-emerald)' : 'var(--border-card)')}
-                  strokeWidth={isSelected ? '2.5' : '1.5'}
+                  width="140" height="62" rx="8"
+                  fill={isWaterDistressed ? 'var(--accent-rose-dim)' : 'var(--bg-card)'}
+                  stroke={isWaterDistressed ? 'var(--accent-rose)' : (isSelected ? 'var(--accent-emerald)' : (isHovered ? 'var(--accent-emerald)' : 'var(--border-card)'))}
+                  strokeWidth={isSelected || isWaterDistressed ? '2.5' : '1.5'}
                   filter={isHovered || isSelected ? 'drop-shadow(0 4px 10px rgba(5,150,105,0.2))' : 'none'}
                 />
-                <circle cx="15" cy="17" r="5" fill="var(--accent-emerald)" />
-                <text x="26" y="20" fill="var(--text-primary)" fontSize="11.5" fontWeight="700">WATER PLANT</text>
-                <rect x="92" y="10" width="40" height="14" rx="3" fill="var(--accent-emerald-dim)" />
-                <text x="112" y="20" fill="var(--accent-emerald)" fontSize="7.5" fontWeight="800" textAnchor="middle">
+                <circle cx="15" cy="16" r="5" fill={isWaterDistressed ? 'var(--accent-rose)' : 'var(--accent-emerald)'} />
+                <text x="26" y="19" fill="var(--text-primary)" fontSize="11" fontWeight="700">WATER PLANT</text>
+                <rect x="92" y="9" width="40" height="14" rx="3" fill="var(--accent-emerald-dim)" />
+                <text x="112" y="19" fill="var(--accent-emerald)" fontSize="7.5" fontWeight="800" textAnchor="middle">
                   CRITICAL
                 </text>
-                <text x="14" y="38" fill="var(--text-muted)" fontSize="9">Municipal Treatment</text>
-                <text x="14" y="54" fill="var(--accent-emerald)" fontSize="10.5" fontFamily="var(--font-mono)" fontWeight="700">
+                <text x="14" y="36" fill="var(--text-muted)" fontSize="9">Municipal Supply</text>
+                <text x="14" y="51" fill={isWaterDistressed ? 'var(--accent-rose)' : 'var(--accent-emerald)'} fontSize="10.5" fontFamily="var(--font-mono)" fontWeight="700">
                   {waterPlant.supplied_mw} / {waterPlant.demand_mw} MW
                 </text>
               </g>
             );
           })()}
 
-          {/* 9. Residential Zone */}
+          {/* 9. Emergency Services (Critical) */}
+          {(() => {
+            const isHovered = hoveredNodeId === 'EMERGENCY_SERVICES';
+            const isSelected = selectedNodeId === 'EMERGENCY_SERVICES';
+            return (
+              <g
+                transform="translate(785, 194)"
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={() => setHoveredNodeId('EMERGENCY_SERVICES')}
+                onMouseLeave={() => setHoveredNodeId(null)}
+                onClick={(e) => { e.stopPropagation(); handleNodeClick('EMERGENCY_SERVICES', emergency, 'Load'); }}
+              >
+                {isEmergencyDistressed && (
+                  <rect
+                    x="-4" y="-4" width="148" height="70" rx="10"
+                    fill="none" stroke="var(--accent-rose)" strokeWidth="2"
+                    className="animate-fault"
+                  />
+                )}
+                <rect
+                  width="140" height="62" rx="8"
+                  fill={isEmergencyDistressed ? 'var(--accent-rose-dim)' : 'var(--bg-card)'}
+                  stroke={isEmergencyDistressed ? 'var(--accent-rose)' : (isSelected ? 'var(--accent-emerald)' : (isHovered ? 'var(--accent-emerald)' : 'var(--border-card)'))}
+                  strokeWidth={isSelected || isEmergencyDistressed ? '2.5' : '1.5'}
+                  filter={isHovered || isSelected ? 'drop-shadow(0 4px 10px rgba(5,150,105,0.2))' : 'none'}
+                />
+                <circle cx="15" cy="16" r="5" fill={isEmergencyDistressed ? 'var(--accent-rose)' : 'var(--accent-emerald)'} />
+                <text x="26" y="19" fill="var(--text-primary)" fontSize="11" fontWeight="700">EMERGENCY</text>
+                <rect x="92" y="9" width="40" height="14" rx="3" fill="var(--accent-emerald-dim)" />
+                <text x="112" y="19" fill="var(--accent-emerald)" fontSize="7.5" fontWeight="800" textAnchor="middle">
+                  CRITICAL
+                </text>
+                <text x="14" y="36" fill="var(--text-muted)" fontSize="9">911 Dispatch Node</text>
+                <text x="14" y="51" fill={isEmergencyDistressed ? 'var(--accent-rose)' : 'var(--accent-emerald)'} fontSize="10.5" fontFamily="var(--font-mono)" fontWeight="700">
+                  {emergency.supplied_mw} / {emergency.demand_mw} MW
+                </text>
+              </g>
+            );
+          })()}
+
+          {/* 10. Residential Zone */}
           {(() => {
             const isHovered = hoveredNodeId === 'RESIDENTIAL';
             const isSelected = selectedNodeId === 'RESIDENTIAL';
             return (
               <g
-                transform="translate(785, 256)"
+                transform="translate(785, 272)"
                 style={{ cursor: 'pointer' }}
                 onMouseEnter={() => setHoveredNodeId('RESIDENTIAL')}
                 onMouseLeave={() => setHoveredNodeId(null)}
                 onClick={(e) => { e.stopPropagation(); handleNodeClick('RESIDENTIAL', residential, 'Load'); }}
               >
                 <rect
-                  width="140" height="66" rx="8"
-                  fill="var(--bg-card)"
-                  stroke={isSelected ? 'var(--accent-cyan)' : (isHovered ? 'var(--accent-cyan)' : 'var(--border-card)')}
-                  strokeWidth={isSelected ? '2.5' : '1.5'}
+                  width="140" height="62" rx="8"
+                  fill={isResidentialShed ? 'var(--accent-amber-dim)' : 'var(--bg-card)'}
+                  stroke={isResidentialShed ? 'var(--accent-amber)' : (isSelected ? 'var(--accent-cyan)' : (isHovered ? 'var(--accent-cyan)' : 'var(--border-card)'))}
+                  strokeWidth={isSelected || isResidentialShed ? '2.5' : '1.5'}
                   filter={isHovered || isSelected ? 'drop-shadow(0 4px 10px rgba(2,132,199,0.2))' : 'none'}
                 />
-                <circle cx="15" cy="17" r="5" fill="var(--accent-cyan)" />
-                <text x="26" y="20" fill="var(--text-primary)" fontSize="11" fontWeight="700">RESIDENTIAL</text>
-                <rect x="96" y="10" width="36" height="14" rx="3" fill="var(--bg-tertiary)" />
-                <text x="114" y="20" fill="var(--text-muted)" fontSize="7.5" fontWeight="700" textAnchor="middle">
-                  NORMAL
+                <circle cx="15" cy="16" r="5" fill={isResidentialShed ? 'var(--accent-amber)' : 'var(--accent-cyan)'} />
+                <text x="26" y="19" fill="var(--text-primary)" fontSize="11" fontWeight="700">RESIDENTIAL</text>
+                <rect x="96" y="9" width="36" height="14" rx="3" fill={isResidentialShed ? 'var(--accent-amber)' : 'var(--bg-tertiary)'} />
+                <text x="114" y="19" fill={isResidentialShed ? '#ffffff' : 'var(--text-muted)'} fontSize="7.5" fontWeight="700" textAnchor="middle">
+                  {isResidentialShed ? 'SHED' : 'NORMAL'}
                 </text>
-                <text x="14" y="38" fill="var(--text-muted)" fontSize="9">Metro Feeder</text>
-                <text x="14" y="54" fill="var(--accent-cyan)" fontSize="10.5" fontFamily="var(--font-mono)" fontWeight="600">
-                  {residential.supplied_mw} / {residential.demand_mw} MW
+                <text x="14" y="36" fill="var(--text-muted)" fontSize="9">Metro Feeder</text>
+                <text x="14" y="51" fill={isResidentialShed ? 'var(--accent-amber)' : 'var(--accent-cyan)'} fontSize="10.5" fontFamily="var(--font-mono)" fontWeight="600">
+                  {isResidentialShed ? '0 MW (Load Shed)' : `${residential.supplied_mw} / ${residential.demand_mw} MW`}
                 </text>
               </g>
             );
           })()}
 
-          {/* 10. Factory (Industrial - Load Shed Target) */}
+          {/* 11. Factory (Industrial - Load Shed Target) */}
           {(() => {
             const isHovered = hoveredNodeId === 'FACTORY';
             const isSelected = selectedNodeId === 'FACTORY';
-            const isShed = !factory.connected || factory.supplied_mw === 0;
             return (
               <g
                 transform="translate(785, 350)"
@@ -724,21 +783,21 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
                 onClick={(e) => { e.stopPropagation(); handleNodeClick('FACTORY', factory, 'Load'); }}
               >
                 <rect
-                  width="140" height="66" rx="8"
-                  fill={isShed ? 'var(--accent-amber-dim)' : 'var(--bg-card)'}
-                  stroke={isShed ? 'var(--accent-amber)' : (isSelected ? 'var(--accent-cyan)' : (isHovered ? 'var(--accent-cyan)' : 'var(--border-card)'))}
-                  strokeWidth={isSelected || isShed ? '2.5' : '1.5'}
+                  width="140" height="62" rx="8"
+                  fill={isFactoryShed ? 'var(--accent-amber-dim)' : 'var(--bg-card)'}
+                  stroke={isFactoryShed ? 'var(--accent-amber)' : (isSelected ? 'var(--accent-cyan)' : (isHovered ? 'var(--accent-cyan)' : 'var(--border-card)'))}
+                  strokeWidth={isSelected || isFactoryShed ? '2.5' : '1.5'}
                   filter={isHovered || isSelected ? 'drop-shadow(0 4px 10px rgba(2,132,199,0.2))' : 'none'}
                 />
-                <circle cx="15" cy="17" r="5" fill={isShed ? 'var(--accent-amber)' : 'var(--accent-cyan)'} />
-                <text x="26" y="20" fill="var(--text-primary)" fontSize="11.5" fontWeight="700">FACTORY</text>
-                <rect x="96" y="10" width="36" height="14" rx="3" fill={isShed ? 'var(--accent-amber)' : 'var(--bg-tertiary)'} />
-                <text x="114" y="20" fill={isShed ? '#ffffff' : 'var(--text-muted)'} fontSize="7.5" fontWeight="800" textAnchor="middle">
-                  {isShed ? 'SHED' : 'NORMAL'}
+                <circle cx="15" cy="16" r="5" fill={isFactoryShed ? 'var(--accent-amber)' : 'var(--accent-cyan)'} />
+                <text x="26" y="19" fill="var(--text-primary)" fontSize="11.5" fontWeight="700">FACTORY</text>
+                <rect x="96" y="9" width="36" height="14" rx="3" fill={isFactoryShed ? 'var(--accent-amber)' : 'var(--bg-tertiary)'} />
+                <text x="114" y="19" fill={isFactoryShed ? '#ffffff' : 'var(--text-muted)'} fontSize="7.5" fontWeight="800" textAnchor="middle">
+                  {isFactoryShed ? 'SHED' : 'NORMAL'}
                 </text>
-                <text x="14" y="38" fill="var(--text-muted)" fontSize="9">Heavy Industrial</text>
-                <text x="14" y="54" fill={isShed ? 'var(--accent-amber)' : 'var(--text-primary)'} fontSize="10.5" fontFamily="var(--font-mono)" fontWeight="600">
-                  {isShed ? '0 MW (Load Shed)' : `${factory.supplied_mw} / ${factory.demand_mw} MW`}
+                <text x="14" y="36" fill="var(--text-muted)" fontSize="9">Heavy Industrial</text>
+                <text x="14" y="51" fill={isFactoryShed ? 'var(--accent-amber)' : 'var(--text-primary)'} fontSize="10.5" fontFamily="var(--font-mono)" fontWeight="600">
+                  {isFactoryShed ? '0 MW (Load Shed)' : `${factory.supplied_mw} / ${factory.demand_mw} MW`}
                 </text>
               </g>
             );

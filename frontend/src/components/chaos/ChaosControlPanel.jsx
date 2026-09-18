@@ -26,9 +26,9 @@ export const ChaosControlPanel = ({ onInjectChaos, isLoading, onStep, onStart, m
     {
       id: 'weather_solar',
       title: 'Weather Deterioration',
-      desc: 'Severe storm reduces solar generation on G1 by 30MW.',
+      desc: 'Severe storm reduces solar generation on G2 by 30MW.',
       type: 'WEATHER_DETERIORATION',
-      target: 'G1',
+      target: 'G2_SOLAR',
       params: { drop_mw: 30 },
       accent: 'var(--accent-amber)',
       icon: <IconSun size={16} />

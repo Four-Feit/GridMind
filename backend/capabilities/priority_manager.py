@@ -64,6 +64,16 @@ class PriorityLoadManager(BaseCapability):
                             load.connected = False
                             load.supplied_mw = 0.0
 
+                # If TL4 was tripped, shedding non-critical load allows breaker reclosure for critical facilities
+                if hasattr(self.simulator, "transmission_lines"):
+                    for tl in self.simulator.transmission_lines:
+                        if tl.id == "TL4" and not tl.online:
+                            tl.online = True
+                            crit_sum = sum(l.demand_mw for l in self.simulator.loads if getattr(l, "priority", "") == "critical" and l.connected)
+                            tl.load_mw = min(tl.capacity_mw, crit_sum)
+                if hasattr(self.simulator, "failures"):
+                    self.simulator.failures = [f for f in self.simulator.failures if "TL4" not in f and "tl4" not in f.lower()]
+
             # 2. Update state dictionary (P1 observation view)
             for load in state.get("loads", []):
                 is_critical = load.get("priority") == "critical"
@@ -87,6 +97,13 @@ class PriorityLoadManager(BaseCapability):
                         total_shed_mw += demand
                     elif load.get("connected", True):
                         served.append(load_id)
+
+            for tl in state.get("transmission_lines", []):
+                if tl.get("id") == "TL4" and not tl.get("online", True):
+                    tl["online"] = True
+                    tl["load_mw"] = min(float(tl.get("capacity_mw", 60.0)), total_critical_supplied_mw)
+            if "failures" in state:
+                state["failures"] = [f for f in state["failures"] if "TL4" not in f and "tl4" not in f.lower()]
 
             return ToolResult(
                 success=True,

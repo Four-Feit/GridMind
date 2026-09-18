@@ -128,13 +128,15 @@ class GridMindService:
             self.simulator.inject_failure("substation", target)
             msg = f"Chaos Injected: Substation {target} offline. Downstream loads isolated."
         elif "WEATHER" in event_type_upper or event_type.lower() == "weather":
-            # Weather deterioration: drop solar generation
+            # Weather deterioration: drop solar generation on G2_SOLAR
             drop_mw = float(params.get("drop_mw", 30))
+            target_gen = target if target and target not in ("G1",) else "G2_SOLAR"
             for g in self.simulator.generators:
-                if g.id == "G1":
-                    g.available_mw = max(10.0, g.available_mw - drop_mw)
-            self.simulator.failures.append(f"Severe storm: Solar generation reduced by {drop_mw}MW")
-            msg = f"Chaos Injected: Weather deterioration causing {drop_mw}MW generation drop."
+                if g.id in (target_gen, "G2_SOLAR", "G2") or g.type == "solar":
+                    g.available_mw = max(5.0, g.available_mw - drop_mw)
+                    break
+            self.simulator.failures.append(f"Severe storm: Solar generation (G2) reduced by {drop_mw}MW")
+            msg = f"Chaos Injected: Weather deterioration causing {drop_mw}MW solar drop on G2."
         elif "DEMAND" in event_type_upper or event_type.lower() == "demand":
             # Demand spike
             spike_mw = float(params.get("spike_mw", 25))
