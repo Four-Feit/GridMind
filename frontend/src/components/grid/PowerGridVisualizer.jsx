@@ -62,7 +62,8 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
   const isFactoryShed = !factory.connected || (factory.supplied_mw || 0) === 0;
 
   // S2 Degraded / Bypass state: S2 is tripped offline, but downstream loads are receiving power
-  const isDownstreamSupplied = (hospital.supplied_mw > 0) || (waterPlant.supplied_mw > 0) || (emergency.supplied_mw > 0);
+  const criticalSuppliedMw = (hospital.supplied_mw || 0) + (waterPlant.supplied_mw || 0) + (emergency.supplied_mw || 0);
+  const isDownstreamSupplied = criticalSuppliedMw > 0;
   const isS2Degraded = !s2.online && isDownstreamSupplied;
   const isS2Faulted = !s2.online && !isDownstreamSupplied;
 
@@ -101,7 +102,7 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
       if (s2.online) {
         return { title: 'Substation S2', type: 'Transmission Switching Hub', status: 'Online', stat: `TL1 Load: ${tl1.load_mw}MW`, note: 'Normal routing through TL1 & TL4' };
       } else if (isS2Degraded) {
-        return { title: 'Substation S2 (Degraded)', type: 'Emergency Bypass Mode', status: 'DEGRADED / RUNNING LOW', stat: `Bypass Flow: ${tl4.load_mw || 70}MW`, note: 'Operating under emergency bypass routing; critical loads protected' };
+        return { title: 'Substation S2 (Degraded)', type: 'Emergency Bypass Mode', status: 'DEGRADED / RUNNING LOW', stat: `Bypass Flow: ${criticalSuppliedMw}MW`, note: 'Operating under emergency bypass routing; critical loads protected' };
       } else {
         return { title: 'Substation S2', type: 'Transmission Switching Hub', status: 'OFFLINE (FAULT)', stat: `TL1 Load: ${tl1.load_mw}MW`, note: 'Outage causing critical load disconnection' };
       }
@@ -333,7 +334,7 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
                 online: tl1.online && s1.online && (s2.online || isS2Degraded),
                 color: isS2Degraded ? 'var(--accent-amber)' : (tl1.online && s2.online ? 'var(--accent-cyan)' : 'var(--accent-rose)'),
                 active: isLineActiveForInspection('TL1'),
-                label: isS2Degraded ? `TL1: BYPASS (${tl1.load_mw || 70}MW)` : `TL1: ${tl1.load_mw}/${tl1.capacity_mw}MW`,
+                label: isS2Degraded ? `TL1: BYPASS (${criticalSuppliedMw}MW)` : `TL1: ${tl1.load_mw}/${tl1.capacity_mw}MW`,
                 labelX: 367,
                 labelY: 235,
               },
@@ -345,7 +346,7 @@ export const PowerGridVisualizer = ({ gridState, onSelectEntity }) => {
                 overloaded: isTl4Overloaded || isS2Degraded,
                 color: isS2Degraded || isTl4Overloaded ? 'var(--accent-amber)' : (s2.online && tl4.online ? 'var(--accent-cyan)' : 'var(--accent-rose)'),
                 active: isLineActiveForInspection('TL4'),
-                label: !tl4.online ? 'TL4: TRIPPED (0MW)' : (isS2Degraded ? `TL4: BYPASS (${tl4.load_mw || 70}MW)` : `TL4: ${tl4.load_mw}/${tl4.capacity_mw}MW${isTl4Overloaded ? ' ⚠' : ''}`),
+                label: !tl4.online ? 'TL4: TRIPPED (0MW)' : (isS2Degraded ? `TL4: BYPASS (${criticalSuppliedMw}MW)` : `TL4: ${tl4.load_mw}/${tl4.capacity_mw}MW${isTl4Overloaded ? ' ⚠' : ''}`),
                 labelX: 552,
                 labelY: 235,
               },
