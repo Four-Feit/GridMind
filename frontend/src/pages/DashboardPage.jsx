@@ -5,7 +5,6 @@ import { ManualControlPanel } from '../components/dashboard/ManualControlPanel';
 import { PowerGridVisualizer } from '../components/grid/PowerGridVisualizer';
 import { AgentBrainPanel } from '../components/agent/AgentBrainPanel';
 import { ChaosControlPanel } from '../components/chaos/ChaosControlPanel';
-import { ChaosModePanel } from '../components/chaos/ChaosModePanel';
 import { EventTimeline } from '../components/events/EventTimeline';
 
 export const DashboardPage = ({
@@ -154,45 +153,7 @@ export const DashboardPage = ({
         </div>
       )}
 
-      {/* ── Chaos Mode ── */}
-      {activeMode === 'chaos' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-          <MissionSummaryWidget
-            gridState={gridState}
-            agentState={agentState}
-            events={events}
-            isLoading={isLoading}
-            onStart={startMission}
-            onStep={stepMission}
-            onStop={stopMission}
-            onReset={resetMission}
-          />
 
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
-                Chaos Engineering Scenarios
-              </h2>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                · Automated stress disturbance scenarios with real simulator events
-              </span>
-            </div>
-            <ChaosModePanel
-              injectChaos={injectChaos}
-              events={events}
-              gridState={gridState}
-              isLoading={isLoading}
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.12fr) minmax(0, 1fr)', gap: '24px' }}>
-            <PowerGridVisualizer gridState={gridState} onReset={resetMission} isLoading={isLoading} />
-            <AgentBrainPanel agentState={agentState} events={events} />
-          </div>
-
-          <EventTimeline events={events} />
-        </div>
-      )}
     </div>
   );
 };

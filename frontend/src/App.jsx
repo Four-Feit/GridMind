@@ -7,6 +7,7 @@ import { LandingPage } from './pages/LandingPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ArchitecturePage } from './pages/ArchitecturePage';
 import { EventTracePage } from './pages/EventTracePage';
+import { DevelopedByPage } from './pages/DevelopedByPage';
 
 export function App() {
   const [activePage, setActivePage] = useState('landing');
@@ -74,6 +75,8 @@ export function App() {
         )}
 
         {activePage === 'events' && <EventTracePage events={events} />}
+
+        {activePage === 'developed-by' && <DevelopedByPage />}
       </main>
 
       <Footer activePage={activePage} setActivePage={setActivePage} />

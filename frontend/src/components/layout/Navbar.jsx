@@ -41,6 +41,7 @@ export const Navbar = ({
     { id: 'dashboard',    label: 'Mission Control' },
     { id: 'architecture', label: 'Architecture' },
     { id: 'events',       label: 'Event Log' },
+    { id: 'developed-by', label: 'Developed By' },
   ];
 
   return (

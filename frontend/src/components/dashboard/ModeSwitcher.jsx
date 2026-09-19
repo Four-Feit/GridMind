@@ -21,16 +21,6 @@ const modes = [
     ),
     desc: 'Directly adjust grid state: generation, loads, battery, lines',
   },
-  {
-    id: 'chaos',
-    label: 'Chaos Mode',
-    icon: (
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-      </svg>
-    ),
-    desc: 'Automated disturbance scenarios — watch the agent respond',
-  },
 ];
 
 export const ModeSwitcher = ({ activeMode, setActiveMode }) => {
@@ -71,9 +61,7 @@ export const ModeSwitcher = ({ activeMode, setActiveMode }) => {
               <span style={{
                 display: 'flex', alignItems: 'center',
                 color: isActive ? (
-                  mode.id === 'chaos' ? '#fca5a5' :
-                  mode.id === 'manual' ? '#fde047' :
-                  '#86efac'
+                  mode.id === 'manual' ? '#fde047' : '#86efac'
                 ) : 'inherit',
                 opacity: isActive ? 1 : 0.65
               }}>
@@ -94,8 +82,8 @@ export const ModeSwitcher = ({ activeMode, setActiveMode }) => {
       }}>
         <span style={{
           width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-          backgroundColor: activeMode === 'chaos' ? 'var(--accent-rose)' : activeMode === 'manual' ? 'var(--accent-amber)' : 'var(--accent-emerald)',
-          boxShadow: activeMode === 'chaos' ? '0 0 6px var(--accent-rose)' : activeMode === 'manual' ? '0 0 6px var(--accent-amber)' : '0 0 6px var(--accent-emerald)',
+          backgroundColor: activeMode === 'manual' ? 'var(--accent-amber)' : 'var(--accent-emerald)',
+          boxShadow: activeMode === 'manual' ? '0 0 6px var(--accent-amber)' : '0 0 6px var(--accent-emerald)',
         }} />
         {modes.find(m => m.id === activeMode)?.desc}
       </p>
