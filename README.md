@@ -3,11 +3,14 @@
 > **Build the Brain, Not the Puppet**  
 > A from-scratch autonomous agent framework featuring real-time dynamic planning, capability discovery, ground-truth outcome verification, and adaptive failure recovery inside a simulated high-voltage power grid.
 
-[![Tests](https://img.shields.io/badge/tests-73%2F73%20passing-brightgreen.svg)](file:///backend/tests/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-grid--mind--silk.vercel.app-16a34a?style=for-the-badge&logo=vercel&logoColor=white)](https://grid-mind-silk.vercel.app/)
+[![Backend API](https://img.shields.io/badge/Backend%20API-gridmind--backend--ja60.onrender.com-009688?style=for-the-badge&logo=render&logoColor=white)](https://gridmind-backend-ja60.onrender.com/)
+
+[![Tests](https://img.shields.io/badge/tests-73%2F73%20passing-brightgreen.svg)](backend/tests/)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/backend-FastAPI%20%2B%20WebSockets-009688.svg)](https://fastapi.tiangolo.com/)
 [![Frontend](https://img.shields.io/badge/frontend-React%2019%20%2B%20Vite-61DAFB.svg)](https://vitejs.dev/)
-[![LLM Support](https://img.shields.io/badge/LLM-Gemini%20Pro%20%7C%20GPT--4o%20%7C%20Groq%20%7C%20Ollama-purple.svg)](file:///backend/llm/)
+[![Team](https://img.shields.io/badge/Team-Four--Feit-purple.svg)](#4-team-four-feit-ownership-matrix)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ---
@@ -138,12 +141,18 @@ graph TD
 
 ## 4. Team Four-Feit Ownership Matrix
 
-| Tier | Role | Lead | Focus Components | Primary Directory |
-|:---:|:---:|:---:|:---|:---|
-| **P1** | **The Brain** | **Himanshu** | Agent loop, planner, working memory, dynamic recovery, capability registry, action validator, LLM client | `backend/core/`, `backend/llm/` |
-| **P2** | **The World** | **Om** | Physical grid simulator, power flow solver, constraint engine, invariants fuzzer, snapshot time machine | `backend/grid/` |
-| **P3** | **The Hands** | **Arpit** | Operational tools (Analyzer, Redistribution, Priority Load Manager, Battery reserve) | `backend/capabilities/` |
-| **P4** | **The Window** | **Daksh** | FastAPI orchestrator, WebSocket telemetry broadcast, React 19 glassmorphism dashboard | `backend/api/`, `frontend/` |
+| Member | Position (Left to Right) | Role | Primary Contributions |
+|:---|:---:|:---|:---|
+| **Om** | 1st from Left | **Power Grid Simulation & Physics** | Engineered the core power flow solver, topology network models, and real-time physical simulation dynamics. |
+| **Himanshu** | 2nd from Left | **Agent Architecture & System Integration** | Engineered the autonomous agent decision loops, LLM reasoning pipelines, heuristic fail-safes, and full end-to-end system integration. |
+| **Daksh** | 3rd from Left | **Chaos Engineering & Frontend** | Engineered the chaos injection engine, cascading failure testing suite, and contributed to frontend interface components. |
+| **Arpit** | 4th from Left | **Agent Capabilities & Frontend UI** | Implemented agent capability extensions, action dispatch controls, and built the responsive frontend telemetry UI. |
+
+### 📸 Interactive "Developed By" Showcase
+The live application features an interactive **Developed By** experience on the frontend:
+* **Dynamic Photo Hover**: Move your cursor over any teammate in the group photo to view their name badge in real time.
+* **Click-to-Inspect**: Clicking any teammate smoothly navigates down and highlights their profile card, contributions, and tech stack tags.
+* **Click-to-Release**: Clicking an active tile releases the selection and clears the highlight.
 
 ---
 
