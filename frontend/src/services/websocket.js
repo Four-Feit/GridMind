@@ -15,6 +15,18 @@ class GridMindWebSocket {
   }
 
   getWsUrl() {
+    if (import.meta.env.VITE_WS_URL) {
+      return import.meta.env.VITE_WS_URL;
+    }
+    if (import.meta.env.VITE_API_URL) {
+      try {
+        const apiUrl = new URL(import.meta.env.VITE_API_URL);
+        const wsProtocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+        return `${wsProtocol}//${apiUrl.host}/ws`;
+      } catch {
+        // Fall back to window location
+      }
+    }
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     // If running in development with vite proxy, connect to current host
     const host = window.location.host;
